@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="mask-icon" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.matthewdev.tech","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="初学React Native，在App中有一个TabBar需要用到图标。平时在开发Android时TabBar图标基本不用图片，都是使用字体图标替代图片，字体图标有自适应屏幕的特性，不会再不同分辨率上失真，从而免去了适配不同分辨率手机的困扰。所以在想React Native中是否可以使用字体图标，研究了一下，果然可行，记录如下。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="React-Native中使用自定义IconFont">
+<meta property="og:url" content="https://blog.matthewdev.tech/2018/12/15/React-Native%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E4%B9%89IconFont/index.html">
+<meta property="og:site_name" content="Matthew&#39;s Blog">
+<meta property="og:description" content="初学React Native，在App中有一个TabBar需要用到图标。平时在开发Android时TabBar图标基本不用图片，都是使用字体图标替代图片，字体图标有自适应屏幕的特性，不会再不同分辨率上失真，从而免去了适配不同分辨率手机的困扰。所以在想React Native中是否可以使用字体图标，研究了一下，果然可行，记录如下。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_result.png">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_download.png">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_compress.png">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_add_file.png">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_refrence.png">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_plist.jpg">
+<meta property="og:image" content="https://blog.matthewdev.tech/images/icon_user.png">
+<meta property="article:published_time" content="2018-12-15T01:20:34.000Z">
+<meta property="article:modified_time" content="2023-07-24T09:57:35.175Z">
+<meta property="article:author" content="Matthew">
+<meta property="article:tag" content="React Native">
+<meta property="article:tag" content="IconFont">
+<meta property="article:tag" content="自定义">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://blog.matthewdev.tech/images/icon_result.png">
+
+<link rel="canonical" href="https://blog.matthewdev.tech/2018/12/15/React-Native%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E4%B9%89IconFont/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>React-Native中使用自定义IconFont | Matthew's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Matthew's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-commonweal">
+
+    <a href="/404/" rel="section"><i class="heartbeat fa-fw"></i>公益 404</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://blog.matthewdev.tech/2018/12/15/React-Native%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E4%B9%89IconFont/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+      <meta itemprop="name" content="Matthew">
+      <meta itemprop="description" content="记录一下学习、工作笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Matthew's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          React-Native中使用自定义IconFont
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-12-15 09:20:34" itemprop="dateCreated datePublished" datetime="2018-12-15T09:20:34+08:00">2018-12-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-24 17:57:35" itemprop="dateModified" datetime="2023-07-24T17:57:35+08:00">2023-07-24</time>
+              </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>3 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>初学React Native，在App中有一个TabBar需要用到图标。平时在开发Android时TabBar图标基本不用图片，都是使用字体图标替代图片，字体图标有自适应屏幕的特性，不会再不同分辨率上失真，从而免去了适配不同分辨率手机的困扰。所以在想React Native中是否可以使用字体图标，研究了一下，果然可行，记录如下。</p>
+</blockquote>
+<span id="more"></span>
+
+<p>用到的工具类库和资源：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/oblador/react-native-vector-icons">react-native-vector-icons</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.iconfont.cn/">阿里巴巴字体图标库</a></li>
+</ul>
+<h2 id="最终效果"><a href="#最终效果" class="headerlink" title="最终效果"></a>最终效果</h2><p>先展示一下使用效果：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//导入组件</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;./js/common/IconFont&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_hot&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_trending&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_collect&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_user&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+<p>效果如图：<br><img src="/images/icon_result.png" alt="效果图"></p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><ol>
+<li>首先安装第三方的字体库组件,这里推荐使用 <a target="_blank" rel="noopener" href="https://github.com/oblador/react-native-vector-icons">react-native-vector-icons</a> ,安装步骤如下：<ul>
+<li>安装依赖：<br> <code>npm install react-native-vector-icons --save</code></li>
+<li>(可选)如果需要使用默认的字体文件，则需要链接资源库        <ul>
+<li>自动：<code>react-native link</code></li>
+<li>手动(不推荐)：<a target="_blank" rel="noopener" href="https://github.com/oblador/react-native-vector-icons">GitHub官方仓库Installation部分</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>这里需要重新编译运行项目。</li>
+<li>使用测试是否安装成功：</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//导入</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;react-native-vector-icons/FontAwesome&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&quot;rocket&quot;</span> <span class="attr">size</span>=<span class="string">&#123;30&#125;</span> <span class="attr">color</span>=<span class="string">&quot;#900&quot;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+
+<h2 id="使用自定义的字体文件"><a href="#使用自定义的字体文件" class="headerlink" title="使用自定义的字体文件"></a>使用自定义的字体文件</h2><ol>
+<li>从<a target="_blank" rel="noopener" href="https://www.iconfont.cn/">阿里巴巴字体图标库</a>下载需要的字体图标，添加到自己创建的项目中。</li>
+<li>点击下载，打包下载到本地：<br><img src="/images/icon_download.png" alt="下载至本地"></li>
+<li>解压文件，<code>iconfont.ttf</code>文件就是后面需要用到的文件：<br><img src="/images/icon_compress.png" alt="下载至本地"></li>
+<li>将文件放到指定的位置：<ul>
+<li>Android:<br> 在Android项目的assets目录下创建文件夹，名为<code>fonts</code>，将上面解压出来的ttf文件拷贝到此目录下。</li>
+<li>IOS：<br> 为了便于字体的统一管理，在项目目录下创建fonts文件夹，并将下载的字体文件拖到文件夹中，Xcode会弹出下图提示框，<code>Add to target</code> 选择当前项目：<br> <img src="/images/icon_add_file.png" alt="添加文件"> 确保添加文件后，项目的Build Phases的Copy Bundle Resources中有刚刚添加的字体文件，如下图：<br> <img src="/images/icon_refrence.png" alt="BuildPhases">接着再修改info.plist文件，在Information Property List下的Fonts provided by application下添加一个item,value就是字体文件的名字，如下图：<br> <img src="/images/icon_plist.jpg" alt="BuildPhases">至此，ios配置完成.</li>
+</ul>
+</li>
+<li>使用自定义的字体文件，如何使用先看看源码： <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">* FontAwesome icon set component.</span></span><br><span class="line"><span class="comment">* Usage: &lt;FontAwesome name=&quot;icon-name&quot; size=&#123;20&#125; color=&quot;#4F8EF7&quot; /&gt;</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">import</span> createIconSet <span class="keyword">from</span> <span class="string">&#x27;./lib/create-icon-set&#x27;</span>;</span><br><span class="line"><span class="keyword">import</span> glyphMap <span class="keyword">from</span> <span class="string">&#x27;./glyphmaps/FontAwesome.json&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> iconSet = <span class="title function_">createIconSet</span>(glyphMap, <span class="string">&#x27;FontAwesome&#x27;</span>, <span class="string">&#x27;FontAwesome.ttf&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> iconSet;</span><br></pre></td></tr></table></figure>
+ FontAwesome.json文件内容如下： <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;glass&quot;</span><span class="punctuation">:</span> <span class="number">61440</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;music&quot;</span><span class="punctuation">:</span> <span class="number">61441</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;search&quot;</span><span class="punctuation">:</span> <span class="number">61442</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;envelope-o&quot;</span><span class="punctuation">:</span> <span class="number">61443</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;heart&quot;</span><span class="punctuation">:</span> <span class="number">61444</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+ FontAwesome字体返回的是一个iconSet,简单理解为是一个显示字体图标的组件，创建这个组件需要三个参数，分别为：<blockquote>
+<ul>
+<li>glyphMap: 是一个json对象，存储的是图标的信息，其中key是字体图标的名字，value是图标的十进制编码。</li>
+<li>fontFamily: 字体库对应的fontFamily，可以在下载字体的网站查得到，以阿里巴巴图标库为例：创建的项目下有编辑项目，点开就可以看见图标库的fontFamily。</li>
+<li>fontFile: 字体文件的名称</li>
+</ul>
+</blockquote>
+</li>
+<li>根据FontAwesome的创建方式，我们可以自己创建一个自定义的字体图标，目前已经可以拿到fontFamily和字体文件，还缺少包含字体名称和值的json对象。以阿里巴巴字体图标库为例，我们可以在项目图标下找到图标的十六进制的值，如下图：<br><img src="/images/icon_user.png" alt="User">e663即为图标的16进制的值，我们需要将其转换为10进制的值，我用到字体图标不多，所以用<a target="_blank" rel="noopener" href="http://tool.oschina.net/hexconvert/">在线转换工具</a>就拿到了需要的10进制的值，如果图标比较多的话，可以写一段代码从下载下来的<code>iconfont.css</code>文件中截取再转换生成对应的json文件，还可以重复使用，有时间可以试试！</li>
+<li>创建自定义的图标组件，代码如下： <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//IconFont.js</span></span><br><span class="line"><span class="keyword">import</span> createIconSet <span class="keyword">from</span> <span class="string">&#x27;react-native-vector-icons/lib/create-icon-set&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> glyphMap = &#123;</span><br><span class="line">    <span class="string">&#x27;icon_user&#x27;</span>: <span class="number">58979</span>,</span><br><span class="line">    <span class="string">&#x27;icon_collect&#x27;</span>: <span class="number">58928</span>,</span><br><span class="line">    <span class="string">&#x27;icon_hot&#x27;</span>:<span class="number">59222</span>,</span><br><span class="line">    <span class="string">&#x27;icon_trending&#x27;</span>:<span class="number">60788</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//映射表，fontFamily，字体文件</span></span><br><span class="line"><span class="keyword">const</span> <span class="title class_">IconFont</span> = <span class="title function_">createIconSet</span>(glyphMap, <span class="string">&#x27;iconfont&#x27;</span>, <span class="string">&#x27;iconfont.ttf&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="title class_">IconFont</span>;</span><br></pre></td></tr></table></figure>
+ 由于图标较少，我直接将字体键值放到了一个json对象，没有单独创建文件。</li>
+<li>使用方式 <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//导入组件</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;./js/common/IconFont&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_hot&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+ 效果文章的开始已经展示过了，至此自定义字体库成功使用！</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/React-Native/" rel="tag"># React Native</a>
+              <a href="/tags/IconFont/" rel="tag"># IconFont</a>
+              <a href="/tags/%E8%87%AA%E5%AE%9A%E4%B9%89/" rel="tag"># 自定义</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/11/23/Android%E6%B2%89%E6%B5%B8%E5%BC%8F%E7%8A%B6%E6%80%81%E6%A0%8F/" rel="prev" title="Android沉浸式状态栏">
+      <i class="fa fa-chevron-left"></i> Android沉浸式状态栏
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/01/21/Git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" rel="next" title="Git使用笔记">
+      Git使用笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%80%E7%BB%88%E6%95%88%E6%9E%9C"><span class="nav-number">1.</span> <span class="nav-text">最终效果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-number">2.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E4%B9%89%E7%9A%84%E5%AD%97%E4%BD%93%E6%96%87%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">使用自定义的字体文件</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Matthew"
+      src="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <p class="site-author-name" itemprop="name">Matthew</p>
+  <div class="site-description" itemprop="description">记录一下学习、工作笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">22</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MatthewDevelop" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MatthewDevelop" rel="noopener" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:guocheng0816@163.com" title="E-Mail → mailto:guocheng0816@163.com" rel="noopener" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="link fa-fw"></i>
+      友链
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://llcat.tech/" title="http:&#x2F;&#x2F;llcat.tech" rel="noopener" target="_blank">llcat</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://jarh.tech/" title="https:&#x2F;&#x2F;jarh.tech&#x2F;" rel="noopener" target="_blank">rh</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Matthew</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+    <span title="站点总字数">38k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">34 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var canonicalURL, curProtocol;
+      //Get the <link> tag
+      var x=document.getElementsByTagName("link");
+		//Find the last canonical URL
+		if(x.length > 0){
+			for (i=0;i<x.length;i++){
+				if(x[i].rel.toLowerCase() == 'canonical' && x[i].href){
+					canonicalURL=x[i].href;
+				}
+			}
+		}
+    //Get protocol
+	    if (!canonicalURL){
+	    	curProtocol = window.location.protocol.split(':')[0];
+	    }
+	    else{
+	    	curProtocol = canonicalURL.split(':')[0];
+	    }
+      //Get current URL if the canonical URL does not exist
+	    if (!canonicalURL) canonicalURL = window.location.href;
+	    //Assign script content. Replace current URL with the canonical URL
+      !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=canonicalURL,t=document.referrer;if(!e.test(r)){var n=(String(curProtocol).toLowerCase() === 'https')?"https://sp0.baidu.com/9_Q4simg2RQJ8t7jm9iCKT-xh_/s.gif":"//api.share.baidu.com/s.gif";t?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var i=new Image;i.src=n}}(window);})();
+  </script>
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

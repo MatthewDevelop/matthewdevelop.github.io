@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <link rel="mask-icon" href="https://s1.ax1x.com/2018/11/24/FFakY8.jpg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.matthewdev.tech","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="最近优化一套老代码，程序运行起来，app启动会经过一个4秒左右的白屏状态，才会显示出UI界面，本篇记录解决app白屏的过程。  现象桌面点击App图标，App启动会出现一段时间的白屏或者黑屏状态，再完成UI加载，用户体验差。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="App启动白屏优化">
+<meta property="og:url" content="https://blog.matthewdev.tech/2019/04/15/App%E5%90%AF%E5%8A%A8%E7%99%BD%E5%B1%8F%E4%BC%98%E5%8C%96/index.html">
+<meta property="og:site_name" content="Matthew&#39;s Blog">
+<meta property="og:description" content="最近优化一套老代码，程序运行起来，app启动会经过一个4秒左右的白屏状态，才会显示出UI界面，本篇记录解决app白屏的过程。  现象桌面点击App图标，App启动会出现一段时间的白屏或者黑屏状态，再完成UI加载，用户体验差。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-04-15T15:29:10.000Z">
+<meta property="article:modified_time" content="2023-07-24T09:57:35.174Z">
+<meta property="article:author" content="Matthew">
+<meta property="article:tag" content="优化">
+<meta property="article:tag" content="启动">
+<meta property="article:tag" content="重构">
+<meta property="article:tag" content="白屏">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://blog.matthewdev.tech/2019/04/15/App%E5%90%AF%E5%8A%A8%E7%99%BD%E5%B1%8F%E4%BC%98%E5%8C%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>App启动白屏优化 | Matthew's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Matthew's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-commonweal">
+
+    <a href="/404/" rel="section"><i class="heartbeat fa-fw"></i>公益 404</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://blog.matthewdev.tech/2019/04/15/App%E5%90%AF%E5%8A%A8%E7%99%BD%E5%B1%8F%E4%BC%98%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+      <meta itemprop="name" content="Matthew">
+      <meta itemprop="description" content="记录一下学习、工作笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Matthew's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          App启动白屏优化
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-15 23:29:10" itemprop="dateCreated datePublished" datetime="2019-04-15T23:29:10+08:00">2019-04-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-24 17:57:35" itemprop="dateModified" datetime="2023-07-24T17:57:35+08:00">2023-07-24</time>
+              </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>3 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>最近优化一套老代码，程序运行起来，app启动会经过一个4秒左右的白屏状态，才会显示出UI界面，本篇记录解决app白屏的过程。</p>
+</blockquote>
+<h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>桌面点击App图标，App启动会出现一段时间的白屏或者黑屏状态，再完成UI加载，用户体验差。</p>
+<span id="more"></span>
+
+<h2 id="原因剖析"><a href="#原因剖析" class="headerlink" title="原因剖析"></a>原因剖析</h2><p>当打开一个Activity时，如果这个Activity所属Application还没有在运行，系统会为这个Activity的创建一个进程（每开启一个进程都会有一个Application，所以Application的onCreate()可能会被调用多次），但进程的创建与初始化都需要时间，在这个动作完成之前，如果初始化的时间过长，屏幕上可能没有任何动静，用户会以为没有点到按钮。所以既不能停在原来的地方又没到显示新的界面，怎么办呢？这就有了StartingWindow（也称之为PreviewWindow）的出现，这样看起来就像Activity已经启动起来了，只是数据内容还没有初始化好。    </p>
+<p>StartingWindow一般出现在应用程序进程创建并初始化成功前，所以它是个临时窗口，对应的WindowType是TYPE_APPLICATION_STARTING。目的是告诉用户，系统已经接受到操作，正在响应，在程序初始化完成后实现目的UI，同时移除这个窗口。     </p>
+<p>StartingWindow就是app启动白屏或者黑屏的原因。</p>
+<p><strong>一般情况下我们会对Application和Activity设置Theme，系统会根据设置的Theme初始化StartingWindow</strong>。     </p>
+<p>Window布局的顶层是DecorView，StartingWindow显示一个空DecorView，但是会给这个DecorView应用这个Activity指定的Theme，如果这个Activity没有指定Theme就用Application的（<em>Application系统要求必须设置Theme</em>）。    </p>
+<p>在Theme中可以指定窗口的背景，Activity的ICON，APP整体文字颜色等，如果说没有指定任何属性，就会用默认的属性，也就是上文中提到的空DecorView，所以我们的白屏和黑屏和空DecorView息息相关，我们给APP设置的Style就决定了是白屏还是黑屏。</p>
+<ol>
+<li>如果选择了Black的系列的主题那么Activity跳转的时候就是黑屏：<blockquote>
+<p>@android:style&#x2F;Theme.Black”</p>
+</blockquote>
+</li>
+<li>如果选择了Light的系列的主题那么Activity跳转的时候就是白屏：<blockquote>
+<p>@android:style&#x2F;Theme.Light”</p>
+</blockquote>
+</li>
+</ol>
+<h2 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h2><p>一般情况是给启动Activity设置一个背景透明的主题：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;SplashTheme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;AppTheme&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowFullscreen&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowIsTranslucent&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>设置后App启动时，确实没有白屏或者黑屏，但是在点击App图标后会延迟几秒钟才会加载出App的Content，这就给人一种app卡顿的假象，实际app已经启动，桌面的图标已经不能点击。如果给多个Activity设置背景，可能在app切换过程中桌面一闪而过。所以一般只给启动Activity设置透明背景，这种方式体验最佳。</p>
+<p>进一步解决App启动经过几秒才能看见Activity的内容的问题。</p>
+<p>不使用透明背景的主题，可以给主题设置颜色或者背景图片。</p>
+<p>步骤：  </p>
+<ol>
+<li>在<code>res/drawable</code>目录下创建一个背景xml文件<code>splash.xml</code>: <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;utf-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">layer-list</span> <span class="attr">xmlns:android</span>=<span class="string">&quot;http://schemas.android.com/apk/res/android&quot;</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 背景颜色 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">android:drawable</span>=<span class="string">&quot;@color/white&quot;</span> /&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">item</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 图片 --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">bitmap</span></span></span><br><span class="line"><span class="tag">            <span class="attr">android:gravity</span>=<span class="string">&quot;center&quot;</span></span></span><br><span class="line"><span class="tag">            <span class="attr">android:src</span>=<span class="string">&quot;@drawable/logo&quot;</span> /&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">item</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">layer-list</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li>将背景设置到主题中： <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;SplashTheme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;AppTheme&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- 背景图 --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowBackground&quot;</span>&gt;</span>@drawable/splash<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- 移除透明背景 --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- &lt;item name=&quot;android:windowFullscreen&quot;&gt;true&lt;/item&gt; --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- &lt;item name=&quot;android:windowIsTranslucent&quot;&gt;true&lt;/item&gt; --&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li>给<code>SplashActivity</code>设置主题： <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">activity</span> <span class="attr">android:name</span>=<span class="string">&quot;.SplashActivity&quot;</span></span></span><br><span class="line"><span class="tag">          <span class="attr">android:theme</span>=<span class="string">&quot;@style/SplashTheme&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">intent-filter</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">action</span> <span class="attr">android:name</span>=<span class="string">&quot;android.intent.action.MAIN&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">category</span> <span class="attr">android:name</span>=<span class="string">&quot;android.intent.category.LAUNCHER&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">intent-filter</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">activity</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li><code>SplashActivity</code>实现： <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SplashActivity</span> <span class="keyword">extends</span> <span class="title class_">Activity</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onCreate</span><span class="params">(Bundle savedInstanceState)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>.onCreate(savedInstanceState);</span><br><span class="line">        <span class="comment">//为了保障启动速度，无需setcontent，直接启动想要的activity</span></span><br><span class="line">        startActivity(<span class="keyword">new</span> <span class="title class_">Intent</span>(<span class="built_in">this</span>, MainActivity.class));</span><br><span class="line">        finish();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;   </span><br></pre></td></tr></table></figure>
+App启动白屏和卡顿问题基本就解决了。</li>
+</ol>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><blockquote>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/yanzhenjie1003/article/details/52201896">带你重新认识：Android Splash页秒开 Activity白屏 Activity黑屏</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E4%BC%98%E5%8C%96/" rel="tag"># 优化</a>
+              <a href="/tags/%E5%90%AF%E5%8A%A8/" rel="tag"># 启动</a>
+              <a href="/tags/%E9%87%8D%E6%9E%84/" rel="tag"># 重构</a>
+              <a href="/tags/%E7%99%BD%E5%B1%8F/" rel="tag"># 白屏</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/03/21/Google%E6%90%9C%E7%B4%A2%E6%8A%80%E5%B7%A7/" rel="prev" title="Google搜索技巧">
+      <i class="fa fa-chevron-left"></i> Google搜索技巧
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/14/%E4%BB%A3%E7%A0%81%E7%AC%94%E8%AE%B0/" rel="next" title="代码笔记">
+      代码笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%B0%E8%B1%A1"><span class="nav-number">1.</span> <span class="nav-text">现象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E5%9B%A0%E5%89%96%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">原因剖析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3"><span class="nav-number">3.</span> <span class="nav-text">解决</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">4.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Matthew"
+      src="https://s1.ax1x.com/2018/11/24/FFakY8.jpg">
+  <p class="site-author-name" itemprop="name">Matthew</p>
+  <div class="site-description" itemprop="description">记录一下学习、工作笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">22</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MatthewDevelop" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MatthewDevelop" rel="noopener" target="_blank"><i class="github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:guocheng0816@163.com" title="E-Mail → mailto:guocheng0816@163.com" rel="noopener" target="_blank"><i class="envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="link fa-fw"></i>
+      友链
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://llcat.tech/" title="http:&#x2F;&#x2F;llcat.tech" rel="noopener" target="_blank">llcat</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://jarh.tech/" title="https:&#x2F;&#x2F;jarh.tech&#x2F;" rel="noopener" target="_blank">rh</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Matthew</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+    <span title="站点总字数">38k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">34 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+  <script>
+    (function(){
+      var canonicalURL, curProtocol;
+      //Get the <link> tag
+      var x=document.getElementsByTagName("link");
+		//Find the last canonical URL
+		if(x.length > 0){
+			for (i=0;i<x.length;i++){
+				if(x[i].rel.toLowerCase() == 'canonical' && x[i].href){
+					canonicalURL=x[i].href;
+				}
+			}
+		}
+    //Get protocol
+	    if (!canonicalURL){
+	    	curProtocol = window.location.protocol.split(':')[0];
+	    }
+	    else{
+	    	curProtocol = canonicalURL.split(':')[0];
+	    }
+      //Get current URL if the canonical URL does not exist
+	    if (!canonicalURL) canonicalURL = window.location.href;
+	    //Assign script content. Replace current URL with the canonical URL
+      !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=canonicalURL,t=document.referrer;if(!e.test(r)){var n=(String(curProtocol).toLowerCase() === 'https')?"https://sp0.baidu.com/9_Q4simg2RQJ8t7jm9iCKT-xh_/s.gif":"//api.share.baidu.com/s.gif";t?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var i=new Image;i.src=n}}(window);})();
+  </script>
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

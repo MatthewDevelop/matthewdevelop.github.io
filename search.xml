@@ -1,0 +1,898 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>Android面试笔记</title>
+    <url>/2019/03/05/Android%E9%9D%A2%E8%AF%95%E7%AC%94%E8%AE%B0/</url>
+    <content><![CDATA[<p><img src="https://gratisography.com/thumbnails/gratisography-black-white-suspension-bridge-thumbnail.jpg" alt="封面"></p>
+<blockquote>
+<p>记录Android面试中可能会遇到的面试题目和答案</p>
+</blockquote>
+<span id="more"></span>
+
+<h3 id="线程"><a href="#线程" class="headerlink" title="线程"></a>线程</h3><h4 id="Java中线程的创建方式"><a href="#Java中线程的创建方式" class="headerlink" title="Java中线程的创建方式"></a>Java中线程的创建方式</h4><p>Java中有三种创建线程的方式，或者说四种:</p>
+<ol>
+<li>继承Thread类实现多线程</li>
+<li>实现Runnable接口</li>
+<li>实现Callable接口</li>
+<li>通过线程池</li>
+</ol>
+<h4 id="线程池的工作原理"><a href="#线程池的工作原理" class="headerlink" title="线程池的工作原理"></a>线程池的工作原理</h4><p>线程池可以减少创建和销毁线程的次数，从而减少系统资源的消耗，当一个任务提交到线程池时：</p>
+<ul>
+<li>首先判断核心线程池中的线程是否已经满了，如果没满，则创建一个核心线程执行任务，否则进入下一步</li>
+<li>判断工作队列是否已满，没有满则加入工作队列，否则执行下一步</li>
+<li>判断线程数是否达到了最大值，如果不是，则创建非核心线程执行任务，否则执行饱和策略，默认抛出异常</li>
+</ul>
+<h3 id="Handler"><a href="#Handler" class="headerlink" title="Handler"></a>Handler</h3><blockquote>
+<p>这篇博客讲解Handler非常详细：<br><a href="https://mp.weixin.qq.com/s/8Ox_zAbgBwb3J0lAdE0gIw">Handler都没搞懂，拿什么去跳槽啊？！</a></p>
+</blockquote>
+<h4 id="Handler工作原理"><a href="#Handler工作原理" class="headerlink" title="Handler工作原理"></a>Handler工作原理</h4><p>Handler，Message，looper 和 MessageQueue 构成了安卓的消息机制，handler创建后可以通过 sendMessage 将消息加入消息队列，然后 looper不断的将消息从 MessageQueue 中取出来，回调到 Hander 的 handleMessage方法，从而实现线程的通信。</p>
+<p>从两种情况来说，第一在UI线程创建Handler,此时我们不需要手动开启looper，因为在应用启动时，在ActivityThread的main方法中就创建了一个当前主线程的looper，并开启了消息队列，消息队列是一个无限循环，为什么无限循环不会ANR?因为可以说，应用的整个生命周期就是运行在这个消息循环中的，安卓是由事件驱动的，Looper.loop不断的接收处理事件，每一个点击触摸或者Activity每一个生命周期都是在Looper.loop的控制之下的，looper.loop一旦结束，应用程序的生命周期也就结束了。我们可以想想什么情况下会发生ANR，第一，事件没有得到处理，第二，事件正在处理，但是没有及时完成，而对事件进行处理的就是looper，所以只能说事件的处理如果阻塞会导致ANR，而不能说looper的无限循环会ANR。</p>
+<p>另一种情况就是在子线程创建Handler,此时由于这个线程中没有默认开启的消息队列，所以我们需要手动调用looper.prepare(),并通过looper.loop开启消息</p>
+<p>主线程Looper从消息队列读取消息，当读完所有消息时，主线程阻塞。子线程往消息队列发送消息，并且往管道文件写数据，主线程即被唤醒，从管道文件读取数据，主线程被唤醒只是为了读取消息，当消息读取完毕，再次睡眠。因此loop的循环并不会对CPU性能有过多的消耗。</p>
+<h3 id="内存"><a href="#内存" class="headerlink" title="内存"></a>内存</h3><h4 id="内存泄漏的场景和解决方案"><a href="#内存泄漏的场景和解决方案" class="headerlink" title="内存泄漏的场景和解决方案"></a>内存泄漏的场景和解决方案</h4><ol>
+<li>非静态内部类的静态实例<br> 非静态内部类会持有外部类的引用，如果非静态内部类的实例是静态的，就会长期的维持着外部类的引用，组织被系统回收。 <ul>
+<li>解决办法是：<br>  使用静态内部类</li>
+</ul>
+</li>
+<li>多线程相关的匿名内部类和非静态内部类<br> 匿名内部类同样会持有外部类的引用，如果在线程中执行耗时操作就有可能发生内存泄漏，导致外部类无法被回收，直到耗时任务结束。<ul>
+<li>解决办法是<br>  在页面退出时结束线程中的任务</li>
+</ul>
+</li>
+<li>Handler内存泄漏<br> Handler导致的内存泄漏也可以被归纳为非静态内部类导致的，Handler内部message是被存储在MessageQueue中的，有些message不能马上被处理，存在的时间会很长，导致handler无法被回收，如果handler是非静态的，就会导致它的外部类无法被回收.<ul>
+<li>解决办法是:<ul>
+<li>使用静态handler，外部类引用使用弱引用处理</li>
+<li>在退出页面时移除消息队列中的消息</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Context导致内存泄漏<br> 单例模式是最常见的发生此泄漏的场景，比如传入一个Activity的Context被静态类引用，导致无法回收。<ul>
+<li>解决办法是:<br>  根据场景确定使用Activity的Context还是Application的Context,因为二者生命周期不同，对于不必须使用Activity的Context的场景（Dialog）,一律采用Application的Context。</li>
+</ul>
+</li>
+<li>静态View导致泄漏<br> 使用静态View可以避免每次启动Activity都去读取并渲染View，但是静态View会持有Activity的引用，导致无法回收。（View一旦被加载到界面中将会持有一个Context对象的引用，在这个例子中，这个context对象是我们的Activity，声明一个静态变量引用这个View，也就引用了activity）<ul>
+<li>解决办法是<br>  在Activity销毁的时候将静态View设置为null</li>
+</ul>
+</li>
+<li>WebView导致的内存泄漏<br> WebView只要使用一次，内存就不会被释放，所以WebView都存在内存泄漏的问题。<ul>
+<li>通常的解决办法是<br>  为WebView单开一个进程，使用AIDL进行通信，根据业务需求在合适的时机释放掉</li>
+</ul>
+</li>
+<li>资源对象未关闭导致<br> 如Cursor，File等，内部往往都使用了缓冲，会造成内存泄漏，一定要确保关闭它并将引用置为null。</li>
+<li>集合中的对象未清理<br> 集合用于保存对象，如果集合越来越大，不进行合理的清理，尤其是如果集合是静态的。</li>
+<li>Bitmap导致内存泄漏<br> Bitmap是比较占内存的，所以一定要在不使用的时候及时进行清理，避免静态变量持有大的Bitmap对象。</li>
+<li>监听器未关闭<br>很多需要register和unregister的系统服务要在合适的时候进行unregister,手动添加的listener也需要及时移除。</li>
+</ol>
+<h3 id="OOM"><a href="#OOM" class="headerlink" title="OOM"></a>OOM</h3><h4 id="什么是OOM"><a href="#什么是OOM" class="headerlink" title="什么是OOM?"></a>什么是OOM?</h4><p>程序申请内存过大，虚拟机无法满足我们，然后自杀了。这个现象通常出现在大图片的APP开发，或者需要用到很多图片的时候。通俗来讲就是我们的APP需要申请一块内存来存放图片的时候，系统认为我们的程序需要的内存过大，及时系统有充分的内存，比如1G，但是系统也不会分配给我们的APP，故而抛出OOM异常，程序没有捕捉异常，故而弹窗崩溃了.</p>
+<h4 id="为什么有OOM"><a href="#为什么有OOM" class="headerlink" title="为什么有OOM?"></a>为什么有OOM?</h4><p>因为Android系统的APP每个进程或者虚拟机有最大内存限制，一旦超过这个限制系统就会抛出OOM错误。跟手机剩余内存是否充足没有多少关系。</p>
+<h4 id="如何避免OOM"><a href="#如何避免OOM" class="headerlink" title="如何避免OOM?"></a>如何避免OOM?</h4><ol>
+<li>使用更加轻量的数据结构：如使用ArrayMap&#x2F;SparseArray替代HashMap,HashMap更耗内存，因为它需要额外的实例对象来记录Mapping操作，SparseArray更加高效，因为它避免了Key Value的自动装箱，和装箱后的解箱操作。</li>
+<li>减少枚举的使用，可以用静态常量或者注解@IntDef替代 </li>
+<li>Bitmap优化:  <ul>
+<li>尺寸压缩：通过InSampleSize设置合适的缩放</li>
+<li>颜色质量：设置合适的format，ARGB_6666&#x2F;RBG_545&#x2F;ARGB_4444&#x2F;ALPHA_6，存在很大差异</li>
+<li>inBitmap:使用inBitmap属性可以告知Bitmap解码器去尝试使用已经存在的内存区域，新解码的Bitmap会尝试去使用之前那张Bitmap在Heap中所占据的pixel data内存区域，而不是去问内存重新申请一块区域来存放Bitmap。利用这种特性，即使是上千张的图片，也只会仅仅只需要占用屏幕所能够显示的图片数量的内存大小，但复用存在一些限制，具体体现在：在Android 4.4之前只能重用相同大小的Bitmap的内存，而Android 4.4及以后版本则只要后来的Bitmap比之前的小即可。使用inBitmap参数前，每创建一个Bitmap对象都会分配一块内存供其使用，而使用了inBitmap参数后，多个Bitmap可以复用一块内存，这样可以提高性能</li>
+<li>简单通过SoftReference引用方式管理图片资源<br> 建一个SoftReference的hashmap，使用图片时，先检查这个hashmap是否有softreference，softreference的图片是否为空，如果为空将图片加载到softreference并加入haspmap。<blockquote>
+<p>参考：<a href="https://www.jianshu.com/p/41ffbf31b20c">什么是OOM？如何解决OOM问题!</a></p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li>使用更小的图片 </li>
+<li>StringBuilder替代String: 在有些时候，代码中会需要使用到大量的字符串拼接的操作，这种时候有必要考虑使用StringBuilder来替代频繁的“+”。</li>
+<li>避免在类似onDraw这样的方法中创建对象，因为它会迅速占用大量内存，引起频繁的GC甚至内存抖动。</li>
+<li>减少内存泄漏也是一种避免OOM的方法</li>
+</ol>
+<h3 id="Activity"><a href="#Activity" class="headerlink" title="Activity"></a>Activity</h3><h4 id="启动模式"><a href="#启动模式" class="headerlink" title="启动模式"></a>启动模式</h4><ul>
+<li><strong>Standard 模式</strong>:<br>  Activity 可以有多个实例，每次启动 Activity，无论任务栈中是否已经有这个Activity的实例，系统都会创建一个新的Activity实例。</li>
+<li><strong>SingleTop模式</strong>:<br>  当一个singleTop模式的Activity已经位于任务栈的栈顶，再去启动它时，不会再创建新的实例,如果不位于栈顶，就会创建新的实例。</li>
+<li><strong>SingleTask模式</strong>:<br>  如果Activity已经位于栈顶，系统不会创建新的Activity实例，和singleTop模式一样。但Activity已经存在但不位于栈顶时，系统就会把该Activity移到栈顶，并把它上面的activity出栈。   </li>
+<li><strong>SingleInstance模式</strong>:<br>  singleInstance 模式也是单例的，但和singleTask不同，singleTask 只是任务栈内单例，系统里是可以有多个singleTask Activity实例的，而 singleInstance Activity 在整个系统里只有一个实例，启动一singleInstanceActivity 时，系统会创建一个新的任务栈，并且这个任务栈只有他一个Activity。</li>
+</ul>
+<h4 id="生命周期"><a href="#生命周期" class="headerlink" title="生命周期"></a>生命周期</h4><blockquote>
+<p>Activity生命周期方法的执行顺序为：<br>onCreate-&gt; onStart-&gt; onResume-&gt; onPause-&gt; onStop-&gt; onDestroy</p>
+</blockquote>
+<p>两个Activity跳转时生命周期方法的执行顺序为：</p>
+<ol>
+<li>启动A<br> onCreate - onStart -  onResume</li>
+<li>在A中启动B<br> ActivityA  onPause<br> ActivityB  onCreate<br> ActivityB  onStart<br> ActivityB  onResume<br> ActivityA  onStop</li>
+<li>从B中返回A（按物理硬件返回键）<br>ActivityB onPause<br>ActivityA onRestart<br>ActivityA onStart<br>ActivityA onResume<br>ActivityB onStop<br>ActivityB onDestroy</li>
+<li>继续返回<br>ActivityA onPause<br>ActivityA onStop<br>ActivityA onDestroy</li>
+</ol>
+<h4 id="onRestart-的调用场景"><a href="#onRestart-的调用场景" class="headerlink" title="onRestart()的调用场景"></a>onRestart()的调用场景</h4><ol>
+<li>按下home键之后，然后切换回来，会调用onRestart()。</li>
+<li>从本Activity跳转到另一个Activity之后，按back键返回原来Activity，会调用onRestart()。</li>
+<li>从本Activity切换到其他的应用，然后再从其他应用切换回来，会调用onRestart()。</li>
+</ol>
+<h4 id="Activity-的横竖屏的切换的生命周期，如何保存数据"><a href="#Activity-的横竖屏的切换的生命周期，如何保存数据" class="headerlink" title="Activity 的横竖屏的切换的生命周期，如何保存数据"></a>Activity 的横竖屏的切换的生命周期，如何保存数据</h4><h3 id="View"><a href="#View" class="headerlink" title="View"></a>View</h3><h4 id="SurfaceView，它是什么？他的继承方式是什么？他与View的区别-从源码角度，如加载，绘制等-。"><a href="#SurfaceView，它是什么？他的继承方式是什么？他与View的区别-从源码角度，如加载，绘制等-。" class="headerlink" title="SurfaceView，它是什么？他的继承方式是什么？他与View的区别(从源码角度，如加载，绘制等)。"></a>SurfaceView，它是什么？他的继承方式是什么？他与View的区别(从源码角度，如加载，绘制等)。</h4><p>SurfaceView中采用了双缓冲机制，保证了UI界面的流畅性，同时 SurfaceView 不在主线程中绘制，而是另开辟一个线程去绘制，所以它不妨碍UI线程；</p>
+<p>SurfaceView 继承于View，他和View主要有以下三点区别：</p>
+<ol>
+<li>View底层没有双缓冲机制，SurfaceView有</li>
+<li>view主要适用于主动更新，而SurfaceView适用与被动的更新，如频繁的刷新</li>
+<li>view会在主线程中去更新UI，而SurfaceView则在子线程中刷新</li>
+</ol>
+<p>SurfaceView的内容不在应用窗口上，所以不能使用变换（平移、缩放、旋转等）。也难以放在ListView或者ScrollView中，不能使用UI控件的一些特性比如View.setAlpha()。</p>
+<p>View：显示视图，内置画布，提供图形绘制函数、触屏事件、按键事件函数等；必须在UI主线程内更新画面，速度较慢。</p>
+<p>SurfaceView：基于view视图进行拓展的视图类，更适合2D游戏的开发；是view的子类，类似使用双缓机制，在新的线程中更新画面所以刷新界面速度比view快，Camera预览界面使用SurfaceView。</p>
+<p>GLSurfaceView：基于SurfaceView视图再次进行拓展的视图类，专用于3D游戏开发的视图；是SurfaceView的子类，openGL专用。</p>
+<h3 id="设计模式和使用场景"><a href="#设计模式和使用场景" class="headerlink" title="设计模式和使用场景"></a>设计模式和使用场景</h3><ul>
+<li>建造者模式：<br>将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示。使用场景比如最常见的AlertDialog,拿我们开发过程中举例，比如Camera开发过程中，可能需要设置一个初始化的相机配置，设置摄像头方向，闪光灯开闭，成像质量等等，这种场景下就可以使用建造者模式。</li>
+<li>装饰者模式：<br>动态的给一个对象添加一些额外的职责，就增加功能来说，装饰模式比生成子类更为灵活。装饰者模式可以在不改变原有类结构的情况下曾强类的功能，比如Java中的BufferedInputStream 包装FileInputStream，举个开发中的例子，比如在我们现有网络框架上需要增加新的功能，那么再包装一层即可，装饰者模式解决了继承存在的一些问题，比如多层继承代码的臃肿，使代码逻辑更清晰。</li>
+<li>观察者模式：</li>
+<li>代理模式：</li>
+<li>门面模式：</li>
+<li>单例模式：</li>
+<li>生产者消费者模式：</li>
+</ul>
+<h3 id="进程"><a href="#进程" class="headerlink" title="进程"></a>进程</h3><h4 id="如何实现进程保活"><a href="#如何实现进程保活" class="headerlink" title="如何实现进程保活"></a>如何实现进程保活</h4><ul>
+<li>Service 设置成 START_STICKY kill 后会被重启(等待5秒左右)，重传Intent，保持与重启前一样</li>
+<li>通过 startForeground将进程设置为前台进程， 做前台服务，优先级和前台应用一个级别，除非在系统内存非常缺，否则此进程不会被 kill</li>
+<li>双进程Service： 让2个进程互相保护对方，其中一个Service被清理后，另外没被清理的进程可以立即重启进程</li>
+<li>用C编写守护进程(即子进程) : Android系统中当前进程(Process)fork出来的子进程，被系统认为是两个不同的进程。当父进程被杀死的时候，子进程仍然可以存活，并不受影响(Android5.0以上的版本不可行）联系厂商，加入白名单</li>
+<li>锁屏状态下，开启一个一像素Activity</li>
+</ul>
+<h3 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h3><h4 id="冷启动与热启动是什么，区别，如何优化，使用场景等"><a href="#冷启动与热启动是什么，区别，如何优化，使用场景等" class="headerlink" title="冷启动与热启动是什么，区别，如何优化，使用场景等"></a>冷启动与热启动是什么，区别，如何优化，使用场景等</h4><ul>
+<li><p>冷启动：<br>当应用启动时，后台没有该应用的进程，这时系统会重新创建一个新的进程分配给该应用， 这个启动方式就叫做冷启动（后台不存在该应用进程）。冷启动因为系统会重新创建一个新的进程分配给它，所以会先创建和初始化Application类，再创建和初始化MainActivity类（包括一系列的测量、布局、绘制），最后显示在界面上。</p>
+</li>
+<li><p>热启动：<br>当应用已经被打开， 但是被按下返回键、Home键等按键时回到桌面或者是其他程序的时候，再重新打开该app时， 这个方式叫做热启动（后台已经存在该应用进程）。热启动因为会从已有的进程中来启动，所以热启动就不会走Application这步了，而是直接走MainActivity（包括一系列的测量、布局、绘制），所以热启动的过程只需要创建和初始化一个MainActivity就行了，而不必创建和初始化Application</p>
+</li>
+<li><p>冷启动的流程<br>当点击app的启动图标时，安卓系统会从Zygote进程中fork创建出一个新的进程分配给该应用，之后会依次创建和初始化Application类、创建MainActivity类、加载主题样式Theme中的windowBackground等属性设置给MainActivity以及配置Activity层级上的一些属性、再inflate布局、当onCreate&#x2F;onStart&#x2F;onResume方法都走完了后最后才进行contentView的measure&#x2F;layout&#x2F;draw显示在界面上</p>
+</li>
+<li><p>冷启动的生命周期简要流程：<br>Application构造方法 –&gt; attachBaseContext()–&gt;onCreate –&gt;Activity构造方法 –&gt; onCreate() –&gt; 配置主体中的背景等操作 –&gt;onStart() –&gt; onResume() –&gt; 测量、布局、绘制显示</p>
+</li>
+<li><p>冷启动的优化：<br>主要是视觉上的优化，解决白屏问题，提高用户体验，所以通过上面冷启动的过程。能做的优化如下：</p>
+<ul>
+<li><p>减少 onCreate()方法的工作量</p>
+</li>
+<li><p>不要让 Application 参与业务的操作</p>
+</li>
+<li><p>不要在 Application 进行耗时操作</p>
+</li>
+<li><p>不要以静态变量的方式在 Application 保存数据</p>
+</li>
+<li><p>减少布局的复杂度和层级</p>
+</li>
+<li><p>减少主线程耗时</p>
+</li>
+</ul>
+</li>
+<li><p>为什么冷启动会有白屏黑屏问题？<br>原因在于加载主题样式Theme中的windowBackground等属性设置给MainActivity发生在inflate布局当onCreate&#x2F;onStart&#x2F;onResume方法之前，而windowBackground背景被设置成了白色或者黑色，所以我们进入app的第一个界面的时候会造成先白屏或黑屏一下再进入界面。<br>解决思路如下：</p>
+<ol>
+<li>给他设置 windowBackground 背景跟启动页的背景相同，如果你的启动页是张图片那么可以直接给 windowBackground 这个属性设置该图片那么就不会有一闪的效果了  <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;Splash_Theme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;@android:style/Theme.NoTitleBar&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowBackground&quot;</span>&gt;</span>@drawable/splash_bg<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowNoTitle&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span>    </span><br></pre></td></tr></table></figure></li>
+<li>采用世面的处理方法，设置背景是透明的，给人一种延迟启动的感觉。,将背景颜色设置为透明色,这样当用户点击桌面APP图片的时候，并不会”立即”进入APP，而且在桌面上停留一会，其实这时候APP已经是启动的了，只是我们心机的把Theme里的windowBackground 的颜色设置成透明的，强行把锅甩给了手机应用厂商（手机反应太慢了啦）  <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;Splash_Theme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;@android:style/Theme.NoTitleBar&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowIsTranslucent&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowNoTitle&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li>以上两种方法是在视觉上显得更快，但其实只是一种表象，让应用启动的更快，有一种思路，将 Application 中的不必要的初始化动作实现懒加载，比如，在SpashActivity 显示后再发送消息到 Application，去初始化，这样可以将初始化的动作放在后边，缩短应用启动到用户看到界面的时间</li>
+</ol>
+</li>
+</ul>
+<h3 id="ANR"><a href="#ANR" class="headerlink" title="ANR"></a>ANR</h3><blockquote>
+<p>在Andorid上，系统会通过Activity Manager和Window Manager服务来监控应用的响应情况，如果应用响应超出限定时间了，为了避免对用户的体验造成困扰，系统就会弹出ANR提示供用户选择是否继续等待应用响应。</p>
+</blockquote>
+<h4 id="ANR的几种类型"><a href="#ANR的几种类型" class="headerlink" title="ANR的几种类型"></a>ANR的几种类型</h4><ul>
+<li>主要类型：KeyDispatchTimeout(5 seconds)<blockquote>
+<p>按键或触摸事件在特定时间(5秒)内无响应。</p>
+</blockquote>
+</li>
+<li>小概率类型：BroadcastTimeout(10 seconds)<blockquote>
+<p>BroadcastReceiver.onReceive()在特定时间(10秒)内无法处理完成。</p>
+</blockquote>
+</li>
+<li>小概率类型：ServiceTimeout(20 seconds)<blockquote>
+<p>Service各个生命周期函数在特定的时间(20秒)内无法处理完成。</p>
+</blockquote>
+</li>
+</ul>
+<h4 id="导致ANR的原因"><a href="#导致ANR的原因" class="headerlink" title="导致ANR的原因"></a>导致ANR的原因</h4><p>UI线程阻塞</p>
+<ol>
+<li>耗时的网络访问</li>
+<li>大量的数据读写</li>
+<li>数据库操作</li>
+<li>硬件操作（比如camera)</li>
+<li>调用thread的join()方法、sleep()方法、wait()方法或者等待线程锁的时候</li>
+<li>service binder的数量达到上限</li>
+<li>system server中发生WatchDog ANR</li>
+<li>Service各个生命周期方法内进行和耗时操作，在20s内未处理完毕</li>
+<li>其他线程持有锁，导致主线程等待超时</li>
+<li>其它线程终止或崩溃导致主线程一直等待</li>
+<li>BroadcastReceiver内进行了耗时操作，超过了10s的限制时间</li>
+</ol>
+<p>CPU满负荷工作时进行I&#x2F;O操作  </p>
+<ul>
+<li>当CPU使用率达到100%，在应用内仍在主线程上进行频繁的读写操作时，就会导致ANR的产生。</li>
+</ul>
+<p>内存不够用</p>
+<ul>
+<li>系统分配给每个App的可用内存是有限的，如果App内存在内存泄漏等情况的话，这个是会导致ANR的出现的。</li>
+</ul>
+<blockquote>
+<p>只有主线程才会出现ANR</p>
+</blockquote>
+<h4 id="如何预防ANR"><a href="#如何预防ANR" class="headerlink" title="如何预防ANR"></a>如何预防ANR</h4><p>其实说来说去，导致ANR发生的罪魁祸首就是在主线程中进行了耗时操作，那么在常规情况下，我们可以通过以下几种方式来防止ANR的产生：</p>
+<ul>
+<li><p>主线程（UI线程）做耗时操作引发ANR预防</p>
+<ul>
+<li>不在主线程（UI）线程中做耗时操作，开辟单独的子线程来处理耗时阻塞事务</li>
+<li>不在Service、BroadcastReceiver内做耗时操作</li>
+<li>不乱用Thread的join()、sleep()、wait()方法</li>
+</ul>
+</li>
+<li><p>CPU满负荷工作时进行I&#x2F;O操作情况下预防<br>  这种情况一般还是I&#x2F;O操作在主线程上进行导致的，同理可以通过开启子线程的方式解决。</p>
+</li>
+<li><p>内存不足产生的ANR<br>排查内存泄漏解决内存不够用的情况，推荐使用LeakCanary。</p>
+</li>
+</ul>
+<h4 id="ANR排查"><a href="#ANR排查" class="headerlink" title="ANR排查"></a>ANR排查</h4><p>当发生ANR后，系统会在data&#x2F;anr&#x2F;目录下生成一个名为traces.txt的文件，文件内主要记录了ANR产生时系统信息的一些情况。通过分析此文件可以找出问题出现的位置、原因。</p>
+<blockquote>
+<p>参考：<a href="https://www.jianshu.com/p/1f720fef3cf0">【Android】应用ANR分析</a></p>
+</blockquote>
+<h3 id="缓存"><a href="#缓存" class="headerlink" title="缓存"></a>缓存</h3><h4 id="三级缓存原理"><a href="#三级缓存原理" class="headerlink" title="三级缓存原理"></a>三级缓存原理</h4><p>当 Android 端需要获得数据时比如获取网络中的图片，首先从内存中查找（按键查找），内存中没有的再从磁盘文件或sqlite中去查找，若磁盘中也没有才通过网络获取</p>
+<h3 id="String"><a href="#String" class="headerlink" title="String"></a>String</h3><h4 id="String-StringBuffer-StringBuilder区别"><a href="#String-StringBuffer-StringBuilder区别" class="headerlink" title="String,StringBuffer,StringBuilder区别"></a>String,StringBuffer,StringBuilder区别</h4><ul>
+<li>String：适用于少量的字符串操作的情况</li>
+<li>StringBuilder：适用于单线程下在字符缓冲区进行大量操作的情况</li>
+<li>StringBuffer：适用多线程下在字符缓冲区进行大量操作的情况(线程安全)</li>
+</ul>
+<h3 id="Fragment"><a href="#Fragment" class="headerlink" title="Fragment"></a>Fragment</h3><h4 id="Fragment与Fragment、Activity通信的四种方式"><a href="#Fragment与Fragment、Activity通信的四种方式" class="headerlink" title="Fragment与Fragment、Activity通信的四种方式"></a>Fragment与Fragment、Activity通信的四种方式</h4><ol>
+<li>直接在一个Fragment中调用另一个Fragment的公开方法</li>
+<li>通过接口调用</li>
+<li>通过广播调用</li>
+<li>直接调用Activity的公共方法</li>
+</ol>
+<h3 id="广播"><a href="#广播" class="headerlink" title="广播"></a>广播</h3><h4 id="有序广播和无序广播"><a href="#有序广播和无序广播" class="headerlink" title="有序广播和无序广播"></a>有序广播和无序广播</h4><ul>
+<li>有序广播<br>发送有序广播后，所有的接受者都可以接受，不可被拦截，不可被修改。</li>
+<li>无序广播<br>发送无序广播，会根据优先级，一级一级向下传递，接受者可以修改广播内容，也可以终止广播事件。</li>
+</ul>
+<h4 id="Android广播的注册方式和区别"><a href="#Android广播的注册方式和区别" class="headerlink" title="Android广播的注册方式和区别"></a>Android广播的注册方式和区别</h4><ul>
+<li>静态注册<br>静态注册可以成为常驻型广播，需要在Androidmanifest.xml文件中进行注册。这种注册方式不受页面生命周期的影响，即使退出页面，也可以接收到广播。此种注册为常驻型广播，会占用CPU资源。</li>
+<li>动态注册<br>动态注册就是需要在代码中注册，这种注册方式也叫非常驻型广播，受生命周期影响，退出后就无法接受广播。这种注册方式需要解绑，否则会导致内存泄漏。</li>
+</ul>
+<h3 id="引用类型"><a href="#引用类型" class="headerlink" title="引用类型"></a>引用类型</h3><blockquote>
+<p>Android中的对象有着4种引用类型，垃圾回收器对于不同的引用类型有着不同的处理方式，了解这些处理方式有助于我们避免写出会导致内存泄露的代码。</p>
+</blockquote>
+<ul>
+<li><p>StrongReference（强引用）<br>强引用我们最常用的一种引用类型。当我们使用new关键字去新建一个对象的时候，创建的就是强引用。<br>当一个对象具有强引用，那么<strong>垃圾回收器是绝对不会的回收和销毁它的</strong>。对象的强引用可以在程序中到处传递。很多情况下，会同时有多个引用指向同一个对象。</p>
+</li>
+<li><p>WeakReference（弱引用）<br>弱引用通过类WeakReference来表示。弱引用并不能阻止垃圾回收。如果使用一个强引用的话，只要该引用存在，那么被引用的对象是不能被回收的。弱引用则没有这个问题。<strong>在垃圾回收器运行的时候，如果对一个对象的所有引用都是弱引用的话，该对象会被回收</strong>。</p>
+</li>
+<li><p>SoftReference（软引用）<br>我们可以把软引用理解成一种稍强的弱引用,使用类SoftReference来表示。<br>与弱引用的区别在于：<strong>如果一个对象只具有软引用，若内存空间足够，垃圾回收器就不会回收它；如果内存空间不足了，才会回收这些对象的内存</strong>。</p>
+<blockquote>
+<p>所以从引用的强度来讲： 强引用 &gt; 软引用 &gt; 弱引用。</p>
+</blockquote>
+</li>
+<li><p>PhantomReference（虚引用）<br>一个只被虚引用持有的对象可能会在任何时候被GC回收。虚引用对对象的生存周期完全没有影响，也无法通过虚引用来获取对象实例，仅仅能在对象被回收时，得到一个系统通知（只能通过是否被加入到ReferenceQueue来判断是否被GC，这也是唯一判断对象是否被GC的途径）,所以<strong>虚引用主要用来跟踪对象被垃圾回收的活动</strong>。</p>
+<blockquote>
+<p>这里参考了一篇博客，博主总结的很好：<a href="http://allenfeng.com/2016/12/07/understanding-how-references-work-in-android-and-java/">理解Android中的引用类型</a></p>
+</blockquote>
+</li>
+</ul>
+<h3 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h3><ul>
+<li><a href="https://www.jianshu.com/p/461bf99964ec">2.2019Android高级面试题总结</a></li>
+</ul>
+]]></content>
+      <tags>
+        <tag>Android</tag>
+        <tag>面试</tag>
+        <tag>总结</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>App启动白屏优化</title>
+    <url>/2019/04/15/App%E5%90%AF%E5%8A%A8%E7%99%BD%E5%B1%8F%E4%BC%98%E5%8C%96/</url>
+    <content><![CDATA[<blockquote>
+<p>最近优化一套老代码，程序运行起来，app启动会经过一个4秒左右的白屏状态，才会显示出UI界面，本篇记录解决app白屏的过程。</p>
+</blockquote>
+<h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>桌面点击App图标，App启动会出现一段时间的白屏或者黑屏状态，再完成UI加载，用户体验差。</p>
+<span id="more"></span>
+
+<h2 id="原因剖析"><a href="#原因剖析" class="headerlink" title="原因剖析"></a>原因剖析</h2><p>当打开一个Activity时，如果这个Activity所属Application还没有在运行，系统会为这个Activity的创建一个进程（每开启一个进程都会有一个Application，所以Application的onCreate()可能会被调用多次），但进程的创建与初始化都需要时间，在这个动作完成之前，如果初始化的时间过长，屏幕上可能没有任何动静，用户会以为没有点到按钮。所以既不能停在原来的地方又没到显示新的界面，怎么办呢？这就有了StartingWindow（也称之为PreviewWindow）的出现，这样看起来就像Activity已经启动起来了，只是数据内容还没有初始化好。    </p>
+<p>StartingWindow一般出现在应用程序进程创建并初始化成功前，所以它是个临时窗口，对应的WindowType是TYPE_APPLICATION_STARTING。目的是告诉用户，系统已经接受到操作，正在响应，在程序初始化完成后实现目的UI，同时移除这个窗口。     </p>
+<p>StartingWindow就是app启动白屏或者黑屏的原因。</p>
+<p><strong>一般情况下我们会对Application和Activity设置Theme，系统会根据设置的Theme初始化StartingWindow</strong>。     </p>
+<p>Window布局的顶层是DecorView，StartingWindow显示一个空DecorView，但是会给这个DecorView应用这个Activity指定的Theme，如果这个Activity没有指定Theme就用Application的（<em>Application系统要求必须设置Theme</em>）。    </p>
+<p>在Theme中可以指定窗口的背景，Activity的ICON，APP整体文字颜色等，如果说没有指定任何属性，就会用默认的属性，也就是上文中提到的空DecorView，所以我们的白屏和黑屏和空DecorView息息相关，我们给APP设置的Style就决定了是白屏还是黑屏。</p>
+<ol>
+<li>如果选择了Black的系列的主题那么Activity跳转的时候就是黑屏：<blockquote>
+<p>@android:style&#x2F;Theme.Black”</p>
+</blockquote>
+</li>
+<li>如果选择了Light的系列的主题那么Activity跳转的时候就是白屏：<blockquote>
+<p>@android:style&#x2F;Theme.Light”</p>
+</blockquote>
+</li>
+</ol>
+<h2 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h2><p>一般情况是给启动Activity设置一个背景透明的主题：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;SplashTheme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;AppTheme&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowFullscreen&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowIsTranslucent&quot;</span>&gt;</span>true<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>设置后App启动时，确实没有白屏或者黑屏，但是在点击App图标后会延迟几秒钟才会加载出App的Content，这就给人一种app卡顿的假象，实际app已经启动，桌面的图标已经不能点击。如果给多个Activity设置背景，可能在app切换过程中桌面一闪而过。所以一般只给启动Activity设置透明背景，这种方式体验最佳。</p>
+<p>进一步解决App启动经过几秒才能看见Activity的内容的问题。</p>
+<p>不使用透明背景的主题，可以给主题设置颜色或者背景图片。</p>
+<p>步骤：  </p>
+<ol>
+<li>在<code>res/drawable</code>目录下创建一个背景xml文件<code>splash.xml</code>: <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;utf-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">layer-list</span> <span class="attr">xmlns:android</span>=<span class="string">&quot;http://schemas.android.com/apk/res/android&quot;</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 背景颜色 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">android:drawable</span>=<span class="string">&quot;@color/white&quot;</span> /&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">item</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 图片 --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">bitmap</span></span></span><br><span class="line"><span class="tag">            <span class="attr">android:gravity</span>=<span class="string">&quot;center&quot;</span></span></span><br><span class="line"><span class="tag">            <span class="attr">android:src</span>=<span class="string">&quot;@drawable/logo&quot;</span> /&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">item</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">layer-list</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li>将背景设置到主题中： <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">style</span> <span class="attr">name</span>=<span class="string">&quot;SplashTheme&quot;</span> <span class="attr">parent</span>=<span class="string">&quot;AppTheme&quot;</span>&gt;</span><span class="language-xml"></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- 背景图 --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;<span class="name">item</span> <span class="attr">name</span>=<span class="string">&quot;android:windowBackground&quot;</span>&gt;</span>@drawable/splash<span class="tag">&lt;/<span class="name">item</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- 移除透明背景 --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- &lt;item name=&quot;android:windowFullscreen&quot;&gt;true&lt;/item&gt; --&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="comment">&lt;!-- &lt;item name=&quot;android:windowIsTranslucent&quot;&gt;true&lt;/item&gt; --&gt;</span></span></span><br><span class="line"><span class="language-xml"></span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li>给<code>SplashActivity</code>设置主题： <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">activity</span> <span class="attr">android:name</span>=<span class="string">&quot;.SplashActivity&quot;</span></span></span><br><span class="line"><span class="tag">          <span class="attr">android:theme</span>=<span class="string">&quot;@style/SplashTheme&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">intent-filter</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">action</span> <span class="attr">android:name</span>=<span class="string">&quot;android.intent.action.MAIN&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">category</span> <span class="attr">android:name</span>=<span class="string">&quot;android.intent.category.LAUNCHER&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">intent-filter</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">activity</span>&gt;</span></span><br></pre></td></tr></table></figure></li>
+<li><code>SplashActivity</code>实现： <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SplashActivity</span> <span class="keyword">extends</span> <span class="title class_">Activity</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onCreate</span><span class="params">(Bundle savedInstanceState)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>.onCreate(savedInstanceState);</span><br><span class="line">        <span class="comment">//为了保障启动速度，无需setcontent，直接启动想要的activity</span></span><br><span class="line">        startActivity(<span class="keyword">new</span> <span class="title class_">Intent</span>(<span class="built_in">this</span>, MainActivity.class));</span><br><span class="line">        finish();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;   </span><br></pre></td></tr></table></figure>
+App启动白屏和卡顿问题基本就解决了。</li>
+</ol>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><blockquote>
+<p><a href="https://blog.csdn.net/yanzhenjie1003/article/details/52201896">带你重新认识：Android Splash页秒开 Activity白屏 Activity黑屏</a></p>
+</blockquote>
+]]></content>
+      <tags>
+        <tag>优化</tag>
+        <tag>启动</tag>
+        <tag>重构</tag>
+        <tag>白屏</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Android沉浸式状态栏</title>
+    <url>/2018/11/23/Android%E6%B2%89%E6%B5%B8%E5%BC%8F%E7%8A%B6%E6%80%81%E6%A0%8F/</url>
+    <content><![CDATA[<blockquote>
+<p>Android 5.0以上可以通过设置 <code>colorPrimaryDark</code> ，设置状态栏颜色，使之余App颜色一致来实现状态栏沉浸.</p>
+</blockquote>
+<blockquote>
+<p>Android 4.4可以设置状态栏透明，通过绘制一个和状态栏高度相同的View，添加到窗口顶层的View上面，在设置根布局的属性达到状态栏沉浸的目的。</p>
+</blockquote>
+<blockquote>
+<p>Android 4.4一下无法实现状态栏沉浸。</p>
+</blockquote>
+<span id="more"></span>
+
+
+
+<p>下面的方法适用于Android4.4以上的状态沉浸，需要在setContentView()方法后调用</p>
+<pre><code>/**
+ * 处理状态栏变色
+ *
+ * @param color 状态栏颜色
+ *              4.4状态栏会显示为该颜色
+ *              5.0以上会显示半透明效果
+ */
+public void translucentBar(int color)&#123;
+    if(Build.VERSION.SDK_INT&gt;=Build.VERSION_CODES.KITKAT)&#123;
+        //设置状态栏透明
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        //获取状态栏高度
+        int resourceId = getResources().getIdentifier(&quot;status_bar_height&quot;, &quot;dimen&quot;, &quot;android&quot;);
+        int statusBarHeight = getResources().getDimensionPixelSize(resourceId);
+        //绘制一个和状态栏高度一致的View
+        View view=new View(this);
+        LinearLayout.LayoutParams layoutParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,statusBarHeight);
+        view.setLayoutParams(layoutParams);
+        view.setBackgroundColor(ContextCompat.getColor(this,color));
+        //添加布局到布局中
+        ViewGroup viewGroup= (ViewGroup) getWindow().getDecorView();
+        viewGroup.addView(view);
+        //设置根布局的参数
+        ViewGroup rootView= (ViewGroup) ((ViewGroup)this.findViewById(android.R.id.content)).getChildAt(0);
+        rootView.setFitsSystemWindows(true);
+        rootView.setClipToPadding(true);
+    &#125;
+&#125;
+</code></pre>
+]]></content>
+      <tags>
+        <tag>状态栏</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>GitHub静态博客绑定自定义域名</title>
+    <url>/2019/03/08/GitHub%E9%9D%99%E6%80%81%E5%8D%9A%E5%AE%A2%E7%BB%91%E5%AE%9A%E8%87%AA%E5%AE%9A%E4%B9%89%E5%9F%9F%E5%90%8D/</url>
+    <content><![CDATA[<blockquote>
+<p>本篇记录给GitHub静态博客绑定自定义域名的过程</p>
+</blockquote>
+<p>同事今天和我说他昨天买了个域名，阿里云上入手的，10年只需199，域名是<code>.tech</code>结尾的。哎呀！这个域名很适合做技术博客的域名，GitHub静态博客的域名刚好不是很好看，给它弄个简单明了的自定义域名岂不刚好！手剁了！</p>
+<h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><ul>
+<li>搭建GitHub静态博客</li>
+<li>购买自定义域名<!-- more  --></li>
+</ul>
+<h3 id="搭建GitHub静态博客"><a href="#搭建GitHub静态博客" class="headerlink" title="搭建GitHub静态博客"></a>搭建GitHub静态博客</h3><p>我之前搭建博客的时候，是看着同事的搭建教程来搭建的，搭建完成后也没有写一篇博文来记录一下，以后补上，这里就当大家都已经有自己的静态博客了吧~</p>
+<p>这里贴一个可以参考的博客: </p>
+<blockquote>
+<p><a href="https://www.simon96.online/2018/10/12/hexo-tutorial/">最全Hexo博客搭建+主题优化+插件配置+常用操作+错误分析</a></p>
+</blockquote>
+<h3 id="买域名"><a href="#买域名" class="headerlink" title="买域名"></a>买域名</h3><p>这一步就是简单直接，选中自己想要的域名，直接下单付款就完事。</p>
+<blockquote>
+<p>购买地址： <a href="https://wanwang.aliyun.com/domain/">阿里云域名购买</a></p>
+</blockquote>
+<h2 id="域名绑定"><a href="#域名绑定" class="headerlink" title="域名绑定"></a>域名绑定</h2><blockquote>
+<p>域名绑定是需要双向绑定的，阿里云控制台域名解析配置需要绑定到博客，Github博客同样需要绑定到自定义域名，这样无论输入原来的博客地址还是输入自定义域名，都可以解析到自定已的域名！</p>
+</blockquote>
+<h3 id="阿里云控制台配置"><a href="#阿里云控制台配置" class="headerlink" title="阿里云控制台配置"></a>阿里云控制台配置</h3><p>买好了域名后，就可以登陆阿里云的控制台了，进入域名控制台，应该可以看到下面这个界面：<br><img src="/images/domain_console.png" alt="域名控制台"></p>
+<p>域名刚买好还是不能使用的，刚买好时你看见上图中的域名状态应该显示的是 <strong>需实名</strong> 的状态，哈哈，在天朝就是啥都需要实名。  </p>
+<p>点击进入实名界面，填写个人信息，然后上传身份证正面照，然后等着就好！大约半个小时吧，就会收到短信提示实名验证通过，那么就可以开始进行下一步了，把域名关联到GitHub静态博客了。</p>
+<p>点击上图中解析按钮，就可以进入域名解析配置的界面了，如下图：<br><img src="/images/analyze_domain.PNG" alt="域名解析"></p>
+<p>在网上查询了很多的资料讲解如何添加域名解析配置，很多人提到，要通过 <code>ping [username].github.io</code> 来获取静态博客的IP地址，再添加到域名解析配置中，那种方式应该过期了吧，我尝试了，但是没有成功。   </p>
+<p>下面是亲测可行的配置方式,只需添加两条解析记录：</p>
+<p>点击添加记录，记录类型选中 <code>CNAME</code> ,两条解析记录的主机记录分别填写 <code>@</code> 和 <code>A</code>，记录值均为 <code>[your github username].github.io</code> ，保存即可！</p>
+<p>Tips：  </p>
+<blockquote>
+<p><code>@</code> 表示直接解析主域名<br><code>A</code> 代表前缀为 <code>www</code><br>所以你访问 <code>www.matthewdev.tech</code> 和 <code>matthewdev.tech</code> 均可以解析到我的博客地址。</p>
+</blockquote>
+<p>至此，阿里云域名控制台配置完成。</p>
+<h3 id="Github博客配置"><a href="#Github博客配置" class="headerlink" title="Github博客配置"></a>Github博客配置</h3><p>需要在博客里添加一个<code>CNAME</code>文件，如果直接在Github的静态博客仓库里添加文件的话，这样每次发布博客的时候，<code>CNAME</code> 文件会被覆盖删除掉。     </p>
+<p>解决方案是，在本地博客仓库的<code>Source</code>目录下新建CNAME文件，<code>CNAME</code> 文件的内容是你的自定义域名，不需要前缀的，我这里是<code>matthewdev.tech</code>,然后将内容发布到远程仓库。</p>
+<p>至此，博客端也配置完成！</p>
+<p>现在在浏览器输入自定义的域名，应该就可以访问到你的博客了！</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><blockquote>
+<p>坑估计就在配置域名解析的地方吧，网上的很多博客都是很久之前写的，那个时候应该是要配置IP的，现在不需要了，直接添加两条CNAME的解析记录就好。</p>
+</blockquote>
+<p>好了，笔记写完了！</p>
+]]></content>
+      <tags>
+        <tag>域名</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Git使用笔记</title>
+    <url>/2019/01/21/Git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/</url>
+    <content><![CDATA[<p><img src="https://picjumbo.com/wp-content/uploads/iceland-shoreline-landscape-2210x1473.jpg" alt="封面"></p>
+<blockquote>
+<p>记录Git使用过程中的一些操作指令</p>
+</blockquote>
+<span id="more"></span>
+
+<h1 id="标签"><a href="#标签" class="headerlink" title="标签"></a>标签</h1><ul>
+<li>创建标签<br><code>git tag &lt;Tag Name&gt;</code> 默认在最后的提交上打Tag<br><code>git tag &lt;Tag Name&gt; &lt;SHA-1 Code&gt;</code> 指定在某一笔提交上打Tag</li>
+<li>创建带注释的Tag<br><code>git tag -a &lt;Tag Name&gt; -m &lt;Tag Message&gt; &lt;SHA-1 Code&gt;</code></li>
+<li>查看Tag<br><code>git tag</code></li>
+<li>查看Tag详细信息<br><code>git show &lt;Tag Name&gt;</code></li>
+<li>推送Tag到远程<br><code>git push origin &lt;Tag Name&gt;</code></li>
+<li>推送本地的所有Tag<br><code>git push origin --tags</code></li>
+<li>删除本地标签<br><code>git tag -d &lt;Tag Name&gt;</code></li>
+<li>删除远程标签<br>先删除本地标签，然后推送到远程<br><code>git push origin :refs/tags/&lt;Tag Name&gt;</code></li>
+</ul>
+<h1 id="分支"><a href="#分支" class="headerlink" title="分支"></a>分支</h1><ul>
+<li>查看所有分支<br><code>git branch -a</code></li>
+<li>删除远程分支<br><code>git push origin --delete BranchName</code></li>
+<li>删除本地分支<br><code>git branch -d BranchName</code></li>
+</ul>
+<h1 id="本地仓库关联到远程仓库"><a href="#本地仓库关联到远程仓库" class="headerlink" title="本地仓库关联到远程仓库"></a>本地仓库关联到远程仓库</h1><ol>
+<li>首先拿到远程仓库的地址<blockquote>
+<p>以GitHub为例：<code>git@github.com:[username]/[repository name]</code></p>
+</blockquote>
+</li>
+<li>将本地代码转换为Git仓库  <blockquote>
+<p><code>git init</code></p>
+</blockquote>
+</li>
+<li>将本地仓库关联到远程仓库<blockquote>
+<p><code>git remote add origin [remote address]</code></p>
+</blockquote>
+</li>
+<li>同步远程仓库,和远程分支关联<blockquote>
+<p><code>git pull origin master</code></p>
+</blockquote>
+</li>
+<li>提交代码<blockquote>
+<p><code>git add </code> 和 <code>git commit</code></p>
+</blockquote>
+</li>
+<li>推送到远程仓库<blockquote>
+<p><code>git push origin master</code></p>
+</blockquote>
+</li>
+</ol>
+]]></content>
+      <tags>
+        <tag>Git</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Google搜索技巧</title>
+    <url>/2019/03/21/Google%E6%90%9C%E7%B4%A2%E6%8A%80%E5%B7%A7/</url>
+    <content><![CDATA[<blockquote>
+<p>平时使用百度或者Google的搜索引擎时，我们经常在搜索栏中输入“Android定位功能如何实现？”，“电脑蓝屏怎么办？”等类似带有一种语气的搜索关键字。搜索引擎其实终究是机器，他并不能很好的理解你的语义，从而给你最匹配的搜索结果。如果我们把关键字稍微精简一下变成“Android 定位功能 实现”和“蓝屏 解决方案”（关键字之间空格分开），去除一些搜索引擎无法理解的语气词，搜索引擎就可以根据你给出的关键字，更好的展示搜索结果，从而提高搜索效率。</p>
+</blockquote>
+<p>本文记录一些搜索技巧，帮助大家提高搜索效率。（以Google搜索引擎为例，程序猿还是比较喜欢Google的）    </p>
+<span id="more"></span>
+<h3 id="使用-“”-进行完全匹配"><a href="#使用-“”-进行完全匹配" class="headerlink" title="使用 “” 进行完全匹配"></a>使用 <code>“”</code> 进行完全匹配</h3><ul>
+<li>场景：<br>使用关键字 <code>Android网络定位</code> 进行搜索时，搜索结果是根据“Android”、“网络”、“定位”等关键字进行无序的匹配获取搜索结果。</li>
+<li>解决方案：  <blockquote>
+<p>使用<code>&quot;&quot;</code>通配符，指定完全匹配关键字  </p>
+</blockquote>
+  使用<code>&quot;Android网络定位&quot;</code>，将会展示关键字完全匹配的搜索结果。</li>
+</ul>
+<h3 id="使用-排除关键字"><a href="#使用-排除关键字" class="headerlink" title="使用 - 排除关键字"></a>使用 <code>-</code> 排除关键字</h3><ul>
+<li>场景：<br>使用关键字 <code>Android网络定位</code> 进行搜索时，不想出现<code>GPS</code>关键字。</li>
+<li>解决方案：    <blockquote>
+<p>使用 <code>-</code> 进行排除关键字 </p>
+</blockquote>
+  在搜索框中输入<code>Android网络定位 -GPS</code>，就会展示去除<code>GPS</code>关键字之后的搜索结果</li>
+</ul>
+<h3 id="使用-进行模糊匹配"><a href="#使用-进行模糊匹配" class="headerlink" title="使用 * 进行模糊匹配"></a>使用 <code>*</code> 进行模糊匹配</h3><ul>
+<li>场景：<br>搜索一本书，但是书名记不清，只记得几个关键字 <code>Android 艺术</code></li>
+<li>解决方案：<blockquote>
+<p>使用 <code>*</code> 通配符进行模糊搜索 </p>
+</blockquote>
+  输入关键字 <code>Android*艺术</code> 就可以获取模糊匹配的结果。</li>
+</ul>
+<h3 id="使用-site-domain-com-指定网站"><a href="#使用-site-domain-com-指定网站" class="headerlink" title="使用 site:[domain.com] 指定网站"></a>使用 <code>site:[domain.com]</code> 指定网站</h3><ul>
+<li><p>场景：<br>想搜索写作技巧，但只想看知乎大神给出的写作技巧</p>
+</li>
+<li><p>解决方案：    </p>
+<blockquote>
+<p>关键字后添加 <code>site:[domain.com]</code> 指定搜索站点</p>
+</blockquote>
+<p>  搜索引擎中输入关键字 <code>写作技巧 site:zhihu.com</code> ，将会只展示知乎上的结果</p>
+</li>
+<li><p>场景：<br>想搜索写作技巧，排除知乎上的搜索结果</p>
+</li>
+<li><p>解决方案：    </p>
+<blockquote>
+<p>关键字后添加 <code>-site:domain.com</code> 指定搜索站点</p>
+</blockquote>
+<p>  搜索引擎中输入关键字 <code>写作技巧 -site:zhihu.com</code> ，将会展示去除知乎后的搜索结果</p>
+</li>
+</ul>
+<h3 id="使用-filetype-filetype-指定文件类型"><a href="#使用-filetype-filetype-指定文件类型" class="headerlink" title="使用 filetype:[filetype]指定文件类型"></a>使用 <code>filetype:[filetype]</code>指定文件类型</h3><ul>
+<li>场景：<br>想要搜索 <code>第一行代码</code> 的pdf文件</li>
+<li>解决方案：    <blockquote>
+<p>使用 <code>filetype:[filetype]</code> 限定文件类型</p>
+</blockquote>
+  搜索引擎中输入关键字 <code>第一行代码 filetype:pdf</code>，将会展示有&#96;&#96;&#96;第一行代码&#96;&#96; 关键字的pdf文件</li>
+</ul>
+<blockquote>
+<p>Tips: Google支持的文件类型有限，例如<code>epub</code>类型的文件就不支持，可能需要在<a href="https://support.google.com/webmasters/answer/35287?hl=en">Search Console Help</a>上查一下支持哪些文件。</p>
+</blockquote>
+]]></content>
+      <tags>
+        <tag>Google</tag>
+        <tag>搜索</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Handler引起的内存泄漏的原因和最佳解决方案</title>
+    <url>/2019/03/09/Handler%E5%BC%95%E8%B5%B7%E7%9A%84%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E7%9A%84%E5%8E%9F%E5%9B%A0%E5%92%8C%E6%9C%80%E4%BD%B3%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/</url>
+    <content><![CDATA[<blockquote>
+<p>Handler导致的内存泄漏是Android开发过程中非常常见的一种内存泄漏，本文讲解Handler导致的App内存泄漏的原因和最佳解决方案</p>
+</blockquote>
+<h3 id="Handler导致内存泄漏方式"><a href="#Handler导致内存泄漏方式" class="headerlink" title="Handler导致内存泄漏方式"></a>Handler导致内存泄漏方式</h3><blockquote>
+<p>Handler允许我们发送<strong>延时消息</strong>，如果在延时的过程中关闭了该Activity，那么该Activity就会泄漏。</p>
+</blockquote>
+<span id="more"></span>
+
+<h3 id="原因"><a href="#原因" class="headerlink" title="原因"></a>原因</h3><blockquote>
+<p>首先Message会持有Handler，其次由于<strong>Java语言特性，非静态内部类默认持有外部类的引用</strong>，所以Activity会被Handler持有，这样最终就导致了Activity的泄漏。</p>
+</blockquote>
+<h3 id="最佳解决方案"><a href="#最佳解决方案" class="headerlink" title="最佳解决方案"></a>最佳解决方案</h3><blockquote>
+<p><strong>将 Handler 定义成静态的内部类，在内部持有 Activity 的弱引用，并及时移除所有消息。</strong></p>
+</blockquote>
+<p>示例代码如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">SafeHandler</span> <span class="keyword">extends</span> <span class="title class_">Handler</span> &#123;</span><br><span class="line"> </span><br><span class="line">     <span class="keyword">private</span> WeakReference&lt;HandlerActivity&gt; ref;</span><br><span class="line"> </span><br><span class="line">     <span class="keyword">public</span> <span class="title function_">SafeHandler</span><span class="params">(HandlerActivity activity)</span> &#123;</span><br><span class="line">         <span class="built_in">this</span>.ref = <span class="keyword">new</span> <span class="title class_">WeakReference</span>(activity);</span><br><span class="line">     &#125;</span><br><span class="line"> </span><br><span class="line">     <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handleMessage</span><span class="params">(<span class="keyword">final</span> Message msg)</span> &#123;</span><br><span class="line">        <span class="type">HandlerActivity</span> <span class="variable">activity</span> <span class="operator">=</span> ref.get();</span><br><span class="line">        <span class="keyword">if</span> (activity != <span class="literal">null</span>) &#123;</span><br><span class="line">            activity.handleMessage(msg);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>再在 <code>Activity.onDestroy()</code> 方法前移除所有消息：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onDestroy</span><span class="params">()</span> &#123;</span><br><span class="line">  safeHandler.removeCallbacksAndMessages(<span class="literal">null</span>);</span><br><span class="line">  <span class="built_in">super</span>.onDestroy();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样双重保障，就可以完全避免内存泄漏。</p>
+<blockquote>
+<p><strong>注意：单纯的在 onDestroy 移除消息并不保险，因为 onDestroy 并不一定执行。</strong></p>
+</blockquote>
+<h3 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h3><p><a href="https://mp.weixin.qq.com/s/8Ox_zAbgBwb3J0lAdE0gIw">Handler都没搞懂，拿什么去跳槽啊？！</a></p>
+]]></content>
+      <tags>
+        <tag>Handler</tag>
+        <tag>内存泄漏</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>React-Native中使用自定义IconFont</title>
+    <url>/2018/12/15/React-Native%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E4%B9%89IconFont/</url>
+    <content><![CDATA[<blockquote>
+<p>初学React Native，在App中有一个TabBar需要用到图标。平时在开发Android时TabBar图标基本不用图片，都是使用字体图标替代图片，字体图标有自适应屏幕的特性，不会再不同分辨率上失真，从而免去了适配不同分辨率手机的困扰。所以在想React Native中是否可以使用字体图标，研究了一下，果然可行，记录如下。</p>
+</blockquote>
+<span id="more"></span>
+
+<p>用到的工具类库和资源：</p>
+<ul>
+<li><a href="https://github.com/oblador/react-native-vector-icons">react-native-vector-icons</a></li>
+<li><a href="https://www.iconfont.cn/">阿里巴巴字体图标库</a></li>
+</ul>
+<h2 id="最终效果"><a href="#最终效果" class="headerlink" title="最终效果"></a>最终效果</h2><p>先展示一下使用效果：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">//导入组件</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;./js/common/IconFont&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_hot&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_trending&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_collect&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_user&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+<p>效果如图：<br><img src="/images/icon_result.png" alt="效果图"></p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><ol>
+<li>首先安装第三方的字体库组件,这里推荐使用 <a href="https://github.com/oblador/react-native-vector-icons">react-native-vector-icons</a> ,安装步骤如下：<ul>
+<li>安装依赖：<br> <code>npm install react-native-vector-icons --save</code></li>
+<li>(可选)如果需要使用默认的字体文件，则需要链接资源库        <ul>
+<li>自动：<code>react-native link</code></li>
+<li>手动(不推荐)：<a href="https://github.com/oblador/react-native-vector-icons">GitHub官方仓库Installation部分</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>这里需要重新编译运行项目。</li>
+<li>使用测试是否安装成功：</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">//导入</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;react-native-vector-icons/FontAwesome&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&quot;rocket&quot;</span> <span class="attr">size</span>=<span class="string">&#123;30&#125;</span> <span class="attr">color</span>=<span class="string">&quot;#900&quot;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+
+<h2 id="使用自定义的字体文件"><a href="#使用自定义的字体文件" class="headerlink" title="使用自定义的字体文件"></a>使用自定义的字体文件</h2><ol>
+<li>从<a href="https://www.iconfont.cn/">阿里巴巴字体图标库</a>下载需要的字体图标，添加到自己创建的项目中。</li>
+<li>点击下载，打包下载到本地：<br><img src="/images/icon_download.png" alt="下载至本地"></li>
+<li>解压文件，<code>iconfont.ttf</code>文件就是后面需要用到的文件：<br><img src="/images/icon_compress.png" alt="下载至本地"></li>
+<li>将文件放到指定的位置：<ul>
+<li>Android:<br> 在Android项目的assets目录下创建文件夹，名为<code>fonts</code>，将上面解压出来的ttf文件拷贝到此目录下。</li>
+<li>IOS：<br> 为了便于字体的统一管理，在项目目录下创建fonts文件夹，并将下载的字体文件拖到文件夹中，Xcode会弹出下图提示框，<code>Add to target</code> 选择当前项目：<br> <img src="/images/icon_add_file.png" alt="添加文件"> 确保添加文件后，项目的Build Phases的Copy Bundle Resources中有刚刚添加的字体文件，如下图：<br> <img src="/images/icon_refrence.png" alt="BuildPhases">接着再修改info.plist文件，在Information Property List下的Fonts provided by application下添加一个item,value就是字体文件的名字，如下图：<br> <img src="/images/icon_plist.jpg" alt="BuildPhases">至此，ios配置完成.</li>
+</ul>
+</li>
+<li>使用自定义的字体文件，如何使用先看看源码： <figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">* FontAwesome icon set component.</span></span><br><span class="line"><span class="comment">* Usage: &lt;FontAwesome name=&quot;icon-name&quot; size=&#123;20&#125; color=&quot;#4F8EF7&quot; /&gt;</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">import</span> createIconSet <span class="keyword">from</span> <span class="string">&#x27;./lib/create-icon-set&#x27;</span>;</span><br><span class="line"><span class="keyword">import</span> glyphMap <span class="keyword">from</span> <span class="string">&#x27;./glyphmaps/FontAwesome.json&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> iconSet = <span class="title function_">createIconSet</span>(glyphMap, <span class="string">&#x27;FontAwesome&#x27;</span>, <span class="string">&#x27;FontAwesome.ttf&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> iconSet;</span><br></pre></td></tr></table></figure>
+ FontAwesome.json文件内容如下： <figure class="highlight json"><table><tr><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;glass&quot;</span><span class="punctuation">:</span> <span class="number">61440</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;music&quot;</span><span class="punctuation">:</span> <span class="number">61441</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;search&quot;</span><span class="punctuation">:</span> <span class="number">61442</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;envelope-o&quot;</span><span class="punctuation">:</span> <span class="number">61443</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;heart&quot;</span><span class="punctuation">:</span> <span class="number">61444</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+ FontAwesome字体返回的是一个iconSet,简单理解为是一个显示字体图标的组件，创建这个组件需要三个参数，分别为：<blockquote>
+<ul>
+<li>glyphMap: 是一个json对象，存储的是图标的信息，其中key是字体图标的名字，value是图标的十进制编码。</li>
+<li>fontFamily: 字体库对应的fontFamily，可以在下载字体的网站查得到，以阿里巴巴图标库为例：创建的项目下有编辑项目，点开就可以看见图标库的fontFamily。</li>
+<li>fontFile: 字体文件的名称</li>
+</ul>
+</blockquote>
+</li>
+<li>根据FontAwesome的创建方式，我们可以自己创建一个自定义的字体图标，目前已经可以拿到fontFamily和字体文件，还缺少包含字体名称和值的json对象。以阿里巴巴字体图标库为例，我们可以在项目图标下找到图标的十六进制的值，如下图：<br><img src="/images/icon_user.png" alt="User">e663即为图标的16进制的值，我们需要将其转换为10进制的值，我用到字体图标不多，所以用<a href="http://tool.oschina.net/hexconvert/">在线转换工具</a>就拿到了需要的10进制的值，如果图标比较多的话，可以写一段代码从下载下来的<code>iconfont.css</code>文件中截取再转换生成对应的json文件，还可以重复使用，有时间可以试试！</li>
+<li>创建自定义的图标组件，代码如下： <figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">//IconFont.js</span></span><br><span class="line"><span class="keyword">import</span> createIconSet <span class="keyword">from</span> <span class="string">&#x27;react-native-vector-icons/lib/create-icon-set&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> glyphMap = &#123;</span><br><span class="line">    <span class="string">&#x27;icon_user&#x27;</span>: <span class="number">58979</span>,</span><br><span class="line">    <span class="string">&#x27;icon_collect&#x27;</span>: <span class="number">58928</span>,</span><br><span class="line">    <span class="string">&#x27;icon_hot&#x27;</span>:<span class="number">59222</span>,</span><br><span class="line">    <span class="string">&#x27;icon_trending&#x27;</span>:<span class="number">60788</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//映射表，fontFamily，字体文件</span></span><br><span class="line"><span class="keyword">const</span> <span class="title class_">IconFont</span> = <span class="title function_">createIconSet</span>(glyphMap, <span class="string">&#x27;iconfont&#x27;</span>, <span class="string">&#x27;iconfont.ttf&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="title class_">IconFont</span>;</span><br></pre></td></tr></table></figure>
+ 由于图标较少，我直接将字体键值放到了一个json对象，没有单独创建文件。</li>
+<li>使用方式 <figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">//导入组件</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Icon</span> <span class="keyword">from</span> <span class="string">&#x27;./js/common/IconFont&#x27;</span>;</span><br><span class="line"><span class="comment">//使用组件</span></span><br><span class="line"><span class="language-xml"><span class="tag">&lt;<span class="name">Icon</span> <span class="attr">name</span>=<span class="string">&#x27;icon_hot&#x27;</span> <span class="attr">size</span>=<span class="string">&#123;20&#125;</span> <span class="attr">color</span>=<span class="string">&#x27;lightgreen&#x27;</span> /&gt;</span></span></span><br></pre></td></tr></table></figure>
+ 效果文章的开始已经展示过了，至此自定义字体库成功使用！</li>
+</ol>
+]]></content>
+      <tags>
+        <tag>React Native</tag>
+        <tag>IconFont</tag>
+        <tag>自定义</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>代码笔记</title>
+    <url>/2019/05/14/%E4%BB%A3%E7%A0%81%E7%AC%94%E8%AE%B0/</url>
+    <content><![CDATA[<blockquote>
+<p>这篇博客记录一些小的代码知识点</p>
+</blockquote>
+<h1 id="文件"><a href="#文件" class="headerlink" title="文件"></a>文件</h1><h2 id="计算SD卡剩余空间百分比"><a href="#计算SD卡剩余空间百分比" class="headerlink" title="计算SD卡剩余空间百分比"></a>计算SD卡剩余空间百分比</h2><blockquote>
+<p>主要涉及到<code>long</code>型的变量的除法运算</p>
+</blockquote>
+<span id="more"></span>
+<p>代码如下:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取当前sd卡可用空间占比</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> -1 sd卡不存在  0~100可用百分比</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getFreeSapcePercentage</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (checkIsSdcardAvailable()) &#123;</span><br><span class="line">        <span class="type">long</span> <span class="variable">freeSpace</span> <span class="operator">=</span> Environment.getExternalStorageDirectory().getFreeSpace();</span><br><span class="line">        <span class="keyword">return</span> getTargetSpacePercentage(freeSpace);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 计算目标空间占总空间的百分比</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> space 目标空间大小</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> percentage</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getTargetSpacePercentage</span><span class="params">(<span class="type">long</span> space)</span> &#123;</span><br><span class="line">    <span class="comment">//将long型的数据转换为BigDecimal再进行除法运算，最后取两位小数</span></span><br><span class="line">    <span class="type">BigDecimal</span> <span class="variable">percent</span> <span class="operator">=</span> BigDecimal.valueOf(space).</span><br><span class="line">            divide(BigDecimal.valueOf(Environment.getExternalStorageDirectory().getTotalSpace()),</span><br><span class="line">                    <span class="keyword">new</span> <span class="title class_">MathContext</span>(<span class="number">2</span>));</span><br><span class="line">    <span class="comment">//BigDecimal转换为float乘以100再强转为整形即得到百分比</span></span><br><span class="line">    <span class="keyword">return</span> (<span class="type">int</span>) (percent.floatValue() * <span class="number">100</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 检测sd卡是否可用</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> true 可用  false 不可用</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="type">boolean</span> <span class="title function_">checkIsSdcardAvailable</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">state</span> <span class="operator">=</span> Environment.getExternalStorageState();</span><br><span class="line">    <span class="keyword">return</span> Environment.MEDIA_MOUNTED.equals(state);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="获取设备外置存储卡路径"><a href="#获取设备外置存储卡路径" class="headerlink" title="获取设备外置存储卡路径"></a>获取设备外置存储卡路径</h2><blockquote>
+<p>最近有需求，用摄像头录制视频存储到外置存储卡。新款到Android设备几乎都不支持外置存储卡，使用Environment类获取的存储卡路径都是内置存储卡的路径，那么想要在支持外置存储卡的设备上获取外置存储卡的路径该怎么做呢？</p>
+</blockquote>
+<p>代码如下，此方法支持在Android 7.0以下设备上获取外置存储卡路径。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取sd卡路径 优先返回外置sd卡路径</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> sdcard path</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> String <span class="title function_">getSdcardPath</span><span class="params">()</span> &#123;</span><br><span class="line">    Map&lt;String, String&gt; map = System.getenv();</span><br><span class="line">    Set&lt;String&gt; set = System.getenv().keySet();</span><br><span class="line">    Iterator&lt;String&gt; keys = set.iterator();</span><br><span class="line">    <span class="type">String</span> <span class="variable">externalPath</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">String</span> <span class="variable">innerPath</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">while</span> (keys.hasNext()) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> keys.next();</span><br><span class="line">        <span class="type">String</span> <span class="variable">value</span> <span class="operator">=</span> map.get(key);</span><br><span class="line">        <span class="keyword">if</span> (<span class="string">&quot;SECONDARY_STORAGE&quot;</span>.equals(key)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!TextUtils.isEmpty(value) &amp;&amp; value.contains(<span class="string">&quot;:&quot;</span>)) &#123;</span><br><span class="line">                externalPath = value.split(<span class="string">&quot;:&quot;</span>)[<span class="number">0</span>];</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                externalPath = value;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="string">&quot;EXTERNAL_STORAGE&quot;</span>.equals(key)) &#123;</span><br><span class="line">            innerPath = value;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (!TextUtils.isEmpty(externalPath) &amp;&amp; !TextUtils.isEmpty(innerPath)) &#123;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (externalPath != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> externalPath;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (innerPath != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> innerPath;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>上面这种方法无效，当外置SD卡拔出，还是能获取到一个路径，使用时会出问题。下面这种方法，使用反射调用隐藏API获取外置SD卡(可移除)的路径。</p>
+</blockquote>
+<p>代码如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取sd卡路径 优先返回外置sd卡路径</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> sdcard path</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> String <span class="title function_">getSdcardPath</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">path</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">String</span> <span class="variable">externalSdcardPath</span> <span class="operator">=</span> getExternalSdCardPath();</span><br><span class="line">    <span class="keyword">if</span> (externalSdcardPath != <span class="literal">null</span>) &#123;</span><br><span class="line">        path = externalSdcardPath;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (checkIsSdcardAvailable()) &#123;</span><br><span class="line">            path = Environment.getExternalStorageDirectory().getAbsolutePath();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> path;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取外置SD卡路径</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> 外置SD卡路径</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> String <span class="title function_">getExternalSdCardPath</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">externalSdCardPath</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">StorageManager</span> <span class="variable">sm</span> <span class="operator">=</span> (StorageManager) HgoboxApplication.getContext().getSystemService(Context.STORAGE_SERVICE);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">Method</span> <span class="variable">methodGetVolumeList</span> <span class="operator">=</span> StorageManager.class.getMethod(<span class="string">&quot;getVolumeList&quot;</span>);</span><br><span class="line">        methodGetVolumeList.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] results = (Object[]) methodGetVolumeList.invoke(sm);</span><br><span class="line">        <span class="keyword">if</span> (results != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">for</span> (Object result : results) &#123;</span><br><span class="line">                <span class="type">Method</span> <span class="variable">methodRemovable</span> <span class="operator">=</span> result.getClass().getMethod(<span class="string">&quot;isRemovable&quot;</span>);</span><br><span class="line">                <span class="type">Boolean</span> <span class="variable">isRemovable</span> <span class="operator">=</span> (Boolean) methodRemovable.invoke(result);</span><br><span class="line">                <span class="keyword">if</span> (isRemovable) &#123;<span class="comment">//可移除</span></span><br><span class="line">                    <span class="type">Method</span> <span class="variable">getPath</span> <span class="operator">=</span> result.getClass().getMethod(<span class="string">&quot;getPath&quot;</span>);</span><br><span class="line">                    <span class="type">String</span> <span class="variable">path</span> <span class="operator">=</span> (String) getPath.invoke(result);</span><br><span class="line">                    <span class="type">Method</span> <span class="variable">getState</span> <span class="operator">=</span> StorageManager.class.getMethod(<span class="string">&quot;getVolumeState&quot;</span>, String.class);</span><br><span class="line">                    <span class="type">String</span> <span class="variable">state</span> <span class="operator">=</span> (String) getState.invoke(sm, path);</span><br><span class="line">                    <span class="keyword">if</span> (state.equals(Environment.MEDIA_MOUNTED)) &#123;<span class="comment">//已挂载</span></span><br><span class="line">                        externalSdCardPath = path;</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> externalSdCardPath;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 检测内置sd卡是否可用</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> true 可用  false 不可用</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="type">boolean</span> <span class="title function_">checkIsSdcardAvailable</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">state</span> <span class="operator">=</span> Environment.getExternalStorageState();</span><br><span class="line">    <span class="keyword">return</span> Environment.MEDIA_MOUNTED.equals(state);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>下面这种方法可根据参数获取可卸载(外置)和不可卸载(内置)的存储卡路径</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取SD卡路径</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> isRemovable 是否可移除</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> SD卡路径</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> String <span class="title function_">getExtSDCardPath</span><span class="params">(<span class="type">boolean</span> isRemovable)</span> &#123;</span><br><span class="line">    <span class="type">StorageManager</span> <span class="variable">storageManager</span> <span class="operator">=</span> (StorageManager) HgoboxApplication.getContext().getSystemService(Context.STORAGE_SERVICE);</span><br><span class="line">    Class&lt;?&gt; storageVolume;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        storageVolume = Class.forName(<span class="string">&quot;android.os.storage.StorageVolume&quot;</span>);</span><br><span class="line">        <span class="type">Method</span> <span class="variable">methodGetVolumeList</span> <span class="operator">=</span> StorageManager.class.getMethod(<span class="string">&quot;getVolumeList&quot;</span>);</span><br><span class="line">        <span class="type">Method</span> <span class="variable">methodGetPath</span> <span class="operator">=</span> storageVolume.getMethod(<span class="string">&quot;getPath&quot;</span>);</span><br><span class="line">        <span class="type">Method</span> <span class="variable">methodIsRemovable</span> <span class="operator">=</span> storageVolume.getMethod(<span class="string">&quot;isRemovable&quot;</span>);</span><br><span class="line">        <span class="type">Method</span> <span class="variable">methodGetState</span> <span class="operator">=</span> StorageManager.class.getMethod(<span class="string">&quot;getVolumeState&quot;</span>, String.class);</span><br><span class="line">        Object[] results = (Object[]) methodGetVolumeList.invoke(storageManager);</span><br><span class="line">        <span class="keyword">if</span> (results != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">for</span> (Object result : results) &#123;</span><br><span class="line">                <span class="type">String</span> <span class="variable">path</span> <span class="operator">=</span> (String) methodGetPath.invoke(result);</span><br><span class="line">                <span class="type">boolean</span> <span class="variable">removable</span> <span class="operator">=</span> (Boolean) methodIsRemovable.invoke(result);</span><br><span class="line">                <span class="type">String</span> <span class="variable">state</span> <span class="operator">=</span> (String) methodGetState.invoke(storageManager, path);</span><br><span class="line">                <span class="keyword">if</span> (isRemovable == removable &amp;&amp; state.equals(Environment.MEDIA_MOUNTED)) &#123;</span><br><span class="line">                    <span class="keyword">return</span> path;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (NoSuchMethodException | IllegalArgumentException | IllegalAccessException | InvocationTargetException | ClassNotFoundException e1) &#123;</span><br><span class="line">        e1.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="网络"><a href="#网络" class="headerlink" title="网络"></a>网络</h1><h2 id="Okhttp3的基本使用"><a href="#Okhttp3的基本使用" class="headerlink" title="Okhttp3的基本使用"></a>Okhttp3的基本使用</h2><blockquote>
+<p>Okhttp基本使用实例</p>
+</blockquote>
+<ul>
+<li>Get请求<ul>
+<li>有参数  <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">OkHttpClient</span> <span class="variable">client</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OkHttpClient</span>();</span><br><span class="line"><span class="type">HttpUrl</span> <span class="variable">url</span> <span class="operator">=</span> HttpUrl.parse(<span class="string">&quot;your url&quot;</span>)</span><br><span class="line">        .newBuilder()</span><br><span class="line">        .addQueryParameter(<span class="string">&quot;your parameter key&quot;</span>, <span class="string">&quot;value&quot;</span>)</span><br><span class="line">        .build();</span><br><span class="line"><span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">        .url(url)</span><br><span class="line">        .addHeader(<span class="string">&quot;Auth-Token&quot;</span>, token)<span class="comment">//your header</span></span><br><span class="line">        .addHeader(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json;charset=utf-8&quot;</span>)</span><br><span class="line">        .get()</span><br><span class="line">        .build();</span><br><span class="line"><span class="comment">//异步执行请求</span></span><br><span class="line">client.newCall(request).enqueue(<span class="keyword">new</span> <span class="title class_">Callback</span>() &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onFailure</span><span class="params">(Call call, IOException e)</span> &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onResponse</span><span class="params">(Call call, Response response)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">        <span class="comment">//do what you want</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure></li>
+<li>无参数  <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">OkHttpClient</span> <span class="variable">client</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OkHttpClient</span>();</span><br><span class="line"><span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">        .url(<span class="string">&quot;your url&quot;</span>)</span><br><span class="line">        .addHeader(<span class="string">&quot;Auth-Token&quot;</span>, token)<span class="comment">//your header</span></span><br><span class="line">        .addHeader(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json;charset=utf-8&quot;</span>)</span><br><span class="line">        .get()</span><br><span class="line">        .build();</span><br><span class="line"><span class="comment">//同步执行请求</span></span><br><span class="line">Response response=client.newCall(request).execute();</span><br><span class="line"><span class="comment">//do what you want</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>Post  <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">OkHttpClient</span> <span class="variable">client</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OkHttpClient</span>();</span><br><span class="line"><span class="type">MediaType</span> <span class="variable">type</span> <span class="operator">=</span> MediaType.get(<span class="string">&quot;application/json;charset=utf-8&quot;</span>);</span><br><span class="line"><span class="type">RequestBody</span> <span class="variable">body</span> <span class="operator">=</span> RequestBody.create(type, <span class="string">&quot;body string&quot;</span>);</span><br><span class="line"><span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">        .url(<span class="string">&quot;your url&quot;</span>)</span><br><span class="line">        .addHeader(<span class="string">&quot;Auth-Token&quot;</span>, token)<span class="comment">//your header</span></span><br><span class="line">        .post(body)</span><br><span class="line">        .build();</span><br><span class="line">client.newCall(request).enqueue(<span class="keyword">new</span> <span class="title class_">Callback</span>() &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onFailure</span><span class="params">(Call call, IOException e)</span> &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onResponse</span><span class="params">(Call call, Response response)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">        <span class="comment">//do what you want</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure></li>
+<li>Put  <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">OkHttpClient</span> <span class="variable">client</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OkHttpClient</span>();</span><br><span class="line"><span class="type">MediaType</span> <span class="variable">type</span> <span class="operator">=</span> MediaType.get(<span class="string">&quot;application/json;charset=utf-8&quot;</span>);</span><br><span class="line"><span class="type">RequestBody</span> <span class="variable">body</span> <span class="operator">=</span> RequestBody.create(JSON, <span class="string">&quot;body string&quot;</span>);</span><br><span class="line"><span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">        .url(<span class="string">&quot;your url&quot;</span>)</span><br><span class="line">        .addHeader(<span class="string">&quot;Auth-Token&quot;</span>, token)<span class="comment">//your header</span></span><br><span class="line">        .put(body)</span><br><span class="line">        .build();</span><br><span class="line"><span class="type">Response</span> <span class="variable">response</span> <span class="operator">=</span> client.newCall(request).execute();</span><br><span class="line"><span class="comment">//do what you want</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<blockquote>
+<p>同步执行网络请求记得放到线程中执行</p>
+</blockquote>
+]]></content>
+      <tags>
+        <tag>代码</tag>
+        <tag>笔记</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>多线程操作SQLiteDatabase</title>
+    <url>/2019/11/09/%E5%A4%9A%E7%BA%BF%E7%A8%8B%E6%93%8D%E4%BD%9CSQLiteDatabase/</url>
+    <content><![CDATA[<h1 id="问题产生初始缘由"><a href="#问题产生初始缘由" class="headerlink" title="问题产生初始缘由"></a>问题产生初始缘由</h1><blockquote>
+<p>前天有个客户反应在公司的智能售货柜上消费，没有产生订单。这不是等于白嫖？赶紧瞅瞅！<br>抓回来日志看了一下，发现了问题。这台柜子网络信号非常非常非常的差，WebSocket发送的订单消息竟然没有成功抵达服务器，订单数据没有到服务器，当然产生不了数据。如此之大的漏洞，赶紧修复～</p>
+</blockquote>
+<span id="more"></span>
+<p>与后端大佬商量了一下对策，给我个接口查询<code>订单key1</code>对应订单状态。<em>安卓端则在本地创建一个数据库，存储用户关门后产生的订单信息，并定时从数据库检索订单数据，与服务端确认对应订单是否已经产生，订单已产生则删除该订单本地记录，订单未产生则重新推送订单信息并保留本地数据，直至下一个周期重新确认该订单是否产生，确保订单信息已产生后，再删除本地记录。</em></p>
+<p>确定了方案就赶紧撸代码。<em>本地创建一张表，主键是自增长的id，<code>Integer</code>类型；还有一个字段是订单独一无二的key1，<code>text</code>类型；订单数据信息字段data，<code>text</code>类型；订单状态字段deleted，<code>Integer</code>类型。线程池中添加一个每隔二十分钟执行的定时任务，从数据库中查询，订单删除状态为<code>0</code>的数据，根据key1向后端查询该订单是否生成。已经生成则将订单删除状态从<code>0</code>改到<code>1</code>,表示该订单已经生成，下一次无需查询该订单；未生成订单的数据则再次通过<code>websocket</code>推送订单信息到服务器，确保所有的订单都有效都生成。</em></p>
+<p>代码修改好,打包Apk上传到服务器，首先推送到4台设备上升级。</p>
+<p>过了一个小时，刷新了一下bugly，我靠，真的有bug。如下图：</p>
+<p><img src="/images/db_error.jpg" alt="db_error"></p>
+<p>错误提示非常明显：不能执行操作，因为数据链接池已经关闭。</p>
+<p>我的代码中，每次操作数据库之后都会关闭链接，如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 逻辑删除订单信息</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> key1 key1</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> result</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">logicDelete</span><span class="params">(String key1)</span> &#123;</span><br><span class="line">    <span class="type">SQLiteDatabase</span> <span class="variable">db</span> <span class="operator">=</span> mHelper.getWritableDatabase();</span><br><span class="line">    <span class="type">ContentValues</span> <span class="variable">contentValues</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ContentValues</span>();</span><br><span class="line">    contentValues.put(<span class="string">&quot;deleted&quot;</span>, <span class="number">1</span>);</span><br><span class="line">    <span class="type">int</span> <span class="variable">num</span> <span class="operator">=</span> db.update(TABLE_NAME, contentValues, <span class="string">&quot;key1=?&quot;</span>, <span class="keyword">new</span> <span class="title class_">String</span>[]&#123;key1&#125;);</span><br><span class="line">    <span class="comment">//关闭数据库</span></span><br><span class="line">    db.close();</span><br><span class="line">    <span class="keyword">return</span> num != <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面代码，是单次操作一条数据，如果一个定时周期内产生了多条需要确认的订单，那么就可能会出现连续多次打开和关闭数据库的情况。经过我的实验发现，使用同一个<code>DataBaseHelper</code>对象打开一个数据库时，如果当前有未关闭的数据库链接对象，则会直接返回当前<code>SQLiteDatabase</code>对象。那么就会出现上述的问题：<strong>连续执行数据库操作时，打开数据库时，返回的是同一个数据库对象，但是在操作数据库的时侯，出现前面的操作完成关闭了数据库，后面的操作继续操作数据库，那么就会抛出上面链接池已经被关闭的异常</strong>。</p>
+<h1 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h1><blockquote>
+<p>解决方法应该有很多，思想是，当所有的数据库操作都执行完毕之后，再关闭数据库。我这边写两种方法：</p>
+</blockquote>
+<h2 id="创建全局唯一的数据库链接"><a href="#创建全局唯一的数据库链接" class="headerlink" title="创建全局唯一的数据库链接"></a>创建全局唯一的数据库链接</h2><p>我没有使用这种方式，但思路应该是在<code>Activity</code>或者<code>Application</code>启动的时侯打开一个数据库链接，在<code>Activity</code>运行时或者程序运行时的数据库操作均使用同一个数据库链接，至于关闭链接则是在<code>Activity</code>或者<code>Application</code>退出时调用<code>close()</code>方法关闭链接。</p>
+<p>我觉得程序运行过程中，操作数据库的地方有限，采用这种方式让数据库一直保持打开状态，会造成资源的浪费（虽然<code>StackOverflow</code>上有人推荐保持数据库打开）,我没有深入研究对程序有多大影响。我认为数据库用完就关，应该是正确的姿势，所以我推荐后面一种方式。</p>
+<h2 id="用线程安全的数据库管理类来管理数据库链接"><a href="#用线程安全的数据库管理类来管理数据库链接" class="headerlink" title="用线程安全的数据库管理类来管理数据库链接"></a>用线程安全的数据库管理类来管理数据库链接</h2><blockquote>
+<p>思路是，使用一个线程安全的原子整形变量(<code>AtomicInteger</code>)来记录当前程序打开数据库的次数。打开数据库时，如果打开次数为零时打开一个新的数据链接，次数加1；如果打开次数不为零时，则返回已经打开的数据库链接对象，并把次数加1。关闭数据库时，如果打开次数为1时，则直接关闭数据库，并把次数减1；如果打开次数大于1，则不关闭数据库，但是次数减1。管理类使用单例设计模式，这样既保证来所有线程操作数据库时使用的是同一个数据链接，也保证了所有数据库操作结束再关闭数据库链接。</p>
+</blockquote>
+<p>代码如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> com.hgobox.hgobox.manage;</span><br><span class="line"><span class="keyword">import</span> android.content.Context;</span><br><span class="line"><span class="keyword">import</span> android.database.sqlite.SQLiteDatabase;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicInteger;</span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Author:matthew</span></span><br><span class="line"><span class="comment"> * &lt;p&gt;</span></span><br><span class="line"><span class="comment"> * Date:2019-11-08 19:52</span></span><br><span class="line"><span class="comment"> * &lt;p&gt;</span></span><br><span class="line"><span class="comment"> * Email:guocheng0816@163.com</span></span><br><span class="line"><span class="comment"> * &lt;p&gt;</span></span><br><span class="line"><span class="comment"> * Desc:数据库链接管理</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DBManager</span> &#123;</span><br><span class="line">    <span class="comment">//线程安全的原子变量记录数据库的打开此时</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">AtomicInteger</span> <span class="variable">mConnectionCount</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicInteger</span>();</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> DBManager INSTANCE;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> DataBaseHelper HELPER;</span><br><span class="line">    <span class="keyword">private</span> SQLiteDatabase mDatabase;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 初始化</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> context</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">initInstance</span><span class="params">(Context context)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (INSTANCE == <span class="literal">null</span>) &#123;</span><br><span class="line">            INSTANCE = <span class="keyword">new</span> <span class="title class_">DBManager</span>();</span><br><span class="line">            HELPER = <span class="keyword">new</span> <span class="title class_">DataBaseHelper</span>(context);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取工具类实例</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> context</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> DBManager <span class="title function_">getInstance</span><span class="params">(Context context)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (INSTANCE == <span class="literal">null</span>) &#123;</span><br><span class="line">            initInstance(context);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> INSTANCE;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取可读写的数据库</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> database</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">synchronized</span> SQLiteDatabase <span class="title function_">getWritableDataBase</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">//打开次数+1</span></span><br><span class="line">        <span class="keyword">if</span> (mConnectionCount.incrementAndGet() == <span class="number">1</span>) &#123;</span><br><span class="line">            mDatabase = HELPER.getWritableDatabase();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> mDatabase;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取只读的数据库</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> database</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">synchronized</span> SQLiteDatabase <span class="title function_">getReadableDataBase</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">//打开次数+1</span></span><br><span class="line">        <span class="keyword">if</span> (mConnectionCount.incrementAndGet() == <span class="number">1</span>) &#123;</span><br><span class="line">            mDatabase = HELPER.getReadableDatabase();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> mDatabase;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 链接数为零的时候关闭数据库</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">closeDatabase</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">//打开次数-1</span></span><br><span class="line">        <span class="keyword">if</span> (mConnectionCount.decrementAndGet() == <span class="number">0</span>) &#123;</span><br><span class="line">            mDatabase.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>代码中方法都使用<code>synchronized</code>关键字修饰，保证多线程操作时的线程安全。</strong></p>
+<p>代码已经运行了好多天了，Bugly没有上报异常～</p>
+<blockquote>
+<p>以上记录一次踩坑～</p>
+</blockquote>
+]]></content>
+      <tags>
+        <tag>数据库</tag>
+        <tag>DataBase</tag>
+        <tag>SQLiteDataBase</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>面试凉凉经</title>
+    <url>/2019/03/14/%E9%9D%A2%E8%AF%95%E5%87%89%E5%87%89%E7%BB%8F/</url>
+    <content><![CDATA[<p>本篇还没整理完，完全是为了方便查看</p>
+<p><img src="http://www.bing.com/th?id=OHR.PWSRecovery_ZH-CN1234475074_1920x1080.jpg&rf=NorthMale_1920x1080.jpg&pid=hp" alt="Bing"></p>
+<blockquote>
+<p>不出去试试就不知道自己有多弱~</p>
+</blockquote>
+<span id="more"></span>
+
+<h2 id="Handler的机制"><a href="#Handler的机制" class="headerlink" title="Handler的机制"></a>Handler的机制</h2><h3 id="为什么要用Handler"><a href="#为什么要用Handler" class="headerlink" title="为什么要用Handler"></a>为什么要用Handler</h3><p>Android规定只能再主线程(UI线程)中更新UI，如果再子线程中操作UI会引起程序崩溃，那么这时候就需要用到Handler,来发送消息通知主线程更新UI。</p>
+<h3 id="创建Handler"><a href="#创建Handler" class="headerlink" title="创建Handler"></a>创建Handler</h3><ul>
+<li>在主线程中可以直接创建Handler </li>
+<li>子线程中必选先调用<code>Looper.prepare()</code>才可以创建Handler，创建Handler后还需要调用<code>Looper.loop()</code>来启动消息循环。</li>
+<li>子线程中创建Handler时传入UI线程的Looper就不必调用<code>Looper.prapare()</code>和<code>Looper.loop()</code>  <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">new</span> <span class="title class_">Thread</span>(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;  </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;  </span><br><span class="line">        <span class="type">Handler</span> <span class="variable">handler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Handler</span>(Looper.getMainLooper())&#123; <span class="comment">// 区别在这！！！！  </span></span><br><span class="line">            <span class="meta">@Override</span>  </span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handleMessage</span><span class="params">(Message msg)</span> &#123;  </span><br><span class="line">                Toast.makeText(getApplicationContext()<span class="string">&quot;handler msg&quot;</span>, Toast.LENGTH_LONG).show();  </span><br><span class="line">            &#125;  </span><br><span class="line">        &#125;;  </span><br><span class="line">        handler.sendEmptyMessage(<span class="number">1</span>);  </span><br><span class="line">    &#125;;  </span><br><span class="line">&#125;).start();</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>主线程在创建的时候会默认创建Looper和Message Queue</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="Handler工作原理（异步消息处理机制）"><a href="#Handler工作原理（异步消息处理机制）" class="headerlink" title="Handler工作原理（异步消息处理机制）"></a>Handler工作原理（异步消息处理机制）</h3><p>异步消息处理机制中的几个要素:</p>
+<ul>
+<li>Message    <blockquote>
+<p>Handler接受和处理的对象</p>
+</blockquote>
+</li>
+<li>Message Queue     <blockquote>
+<p>存储消息对象的队列</p>
+</blockquote>
+</li>
+<li>Looper    <blockquote>
+<p>循环读取Message Queue中的消息，并把读取到的消息分发到对于的Handler进行处理</p>
+</blockquote>
+</li>
+<li>Handler<blockquote>
+<p>发送和处理消息</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>流程</strong>：  </p>
+<!-- 必须有一行空白 -->
+
+<table>
+<thead>
+<tr>
+<th align="center">步骤</th>
+<th align="left">描述</th>
+<th align="left">备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">异步通信准备</td>
+<td align="left">在主线程中创建：<br>- 处理器：Looper<br>- 消息队列：Message Queue<br>- Handler</td>
+<td align="left">-Looper,Message Queue均属于主线程<br>-创建Message Queue后Looper自动进入循环<br>-此时Handler自动绑定了主线程的Looper和Message Queue</td>
+</tr>
+<tr>
+<td align="center">消息入队</td>
+<td align="left">工作线程通过Handler发送Message到消息列队中</td>
+<td align="left">消息内容就是工作线程对UI的操作</td>
+</tr>
+<tr>
+<td align="center">消息循环</td>
+<td align="left">- 消息出队：Looper循环取出消息列队中的消息<br>- 消息分发：Looper将取出的消息发送到创建该消息的处理者</td>
+<td align="left">Looper在循环处理过程中，若消息列队为空，就会阻塞，直到新的消息入队</td>
+</tr>
+<tr>
+<td align="center">消息处理</td>
+<td align="left">- 处理者Handler接受处理器Looper发送过来的消息<br>- 处理者Handler根据消息操作UI</td>
+<td align="left">Handler除了处理消息还负责发送消息</td>
+</tr>
+</tbody></table>
+<p>如下图：<br><img src="http://upload-images.jianshu.io/upload_images/944365-4a64038632c4c88f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="流程"></p>
+<h3 id="子线程中更新UI的方式"><a href="#子线程中更新UI的方式" class="headerlink" title="子线程中更新UI的方式"></a>子线程中更新UI的方式</h3><ul>
+<li>Handler.post(Runnable)</li>
+<li>Handler.sendMessage(Message)</li>
+<li>runOnUiThread(Runnable)</li>
+<li>View.post(Runnable)</li>
+</ul>
+<blockquote>
+<p>无论上面的那种方法，实质上都是通过Handler将消息发送到主线程中更新UI</p>
+</blockquote>
+<h3 id="注意"><a href="#注意" class="headerlink" title="注意"></a>注意</h3><p>线程（Thread）、循环器（Looper）、处理者（Handler）之间的对应关系如下：</p>
+<ul>
+<li>个线程（Thread）只能绑定 1个循环器（Looper），但可以有多个处理者（Handler）</li>
+<li>1个循环器（Looper） 可绑定多个处理者（Handler）</li>
+<li>1个处理者（Handler） 只能绑定1个1个循环器（Looper）</li>
+</ul>
+<p><img src="http://upload-images.jianshu.io/upload_images/944365-61b387c0e66ed8ee.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="对应关系图"></p>
+<h3 id="疑问"><a href="#疑问" class="headerlink" title="疑问"></a>疑问</h3><p>如果在子线程中创建Handler,并重写HandleMessage方法，处理UI会怎么样？</p>
+<blockquote>
+<p>会产生异常，Handler的HandlerMessage方法是运行在Handler所绑定Looper所在的线程中，所以还是属于在子线程中处理UI</p>
+</blockquote>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="https://blog.csdn.net/carson_ho/article/details/80175876">Android 异步通信：图文详解Handler机制工作原理</a></p>
+<h2 id="Android的事件传递"><a href="#Android的事件传递" class="headerlink" title="Android的事件传递"></a>Android的事件传递</h2><p>事件分发顺序<br>Activity-&gt;window-&gt;decorView-&gt;ViewGroup-&gt;View<br>事件处理顺序<br>View-&gt;ViewGroup-&gt;decorView-&gt;Window-&gt;Activity<br>ViewGroup的事件传递方法<br>dispatchTouchEvent()、onInterceptTouchEvent()、onTouchEvent()<br>View的事件传递方法<br>dispatchTouchEvent()、onTouchEvent()</p>
+<h2 id="Android-UI适配"><a href="#Android-UI适配" class="headerlink" title="Android UI适配"></a>Android UI适配</h2><blockquote>
+<p><a href="https://www.jianshu.com/p/a4b8e4c5d9b0?tdsourcetag=s_pcqq_aiomsg">https://www.jianshu.com/p/a4b8e4c5d9b0?tdsourcetag=s_pcqq_aiomsg</a></p>
+</blockquote>
+<p>使用dp作为布局的长宽单位<br>自适应布局<br>Weight比例布局</p>
+<p>宽高限定符</p>
+<p>最小宽限定符</p>
+<h2 id="View的绘制流程"><a href="#View的绘制流程" class="headerlink" title="View的绘制流程"></a>View的绘制流程</h2><p>用面向对象的思维方式来思考，就会觉的View的绘制机制是很合理，很科学的。我们要在一张纸上画一幅画，首先要测量一下这幅画有多大吧，然后确定在这张纸的哪个地方画会显得比较美观，最后才是用画笔工具将画绘制在纸上。   </p>
+<p>在Android中也是一样的。View的绘制流程主要是指measure，layout，draw这三步，即测量，布局，绘制。首先是要测量View的宽高，然后布局确定在父容器中的位置坐标，最后才是绘制显示出来。</p>
+<p>View的绘制流程从ViewRootImpl的performTraversals方法开始，在performTraversals方法中会调用performMeasure、performLayout、performDraw三个方法来遍历完成整棵视图树的绘制。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">childWidthMeasureSpec</span> <span class="operator">=</span> getRootMeasureSpec(mWidth, lp.width);</span><br><span class="line"><span class="type">int</span> <span class="variable">childHeightMeasureSpec</span> <span class="operator">=</span> getRootMeasureSpec(mHeight, lp.height);</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 测量</span></span><br><span class="line">performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 布局</span></span><br><span class="line">performLayout(lp, mWidth, mHeight);</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 绘制</span></span><br><span class="line">performDraw();</span><br></pre></td></tr></table></figure>
+<h3 id="Measure"><a href="#Measure" class="headerlink" title="Measure"></a>Measure</h3><h4 id="MeasureSpec"><a href="#MeasureSpec" class="headerlink" title="MeasureSpec"></a>MeasureSpec</h4><p>是什么？</p>
+<p>MeasureSpec从字面上是测量说明书的意思，是View的测量过程中很关键的要素。</p>
+<p>MeasureSpec 表示的是一个 32 位的整数值，它的高 2 位表示测量模式 SpecMode，低 30 位表示某种测量模式下的规格大小 SpecSize。</p>
+<p>SpecMode有三种</p>
+<ul>
+<li>UNSPECIFIED<br>不指定测量模式，父视图没有限制子视图的大小，子视图可以是想要的任何尺寸，通常用于系统内部，应用开发中很少使用到。</li>
+<li>EXACTLY<br>精确测量模式，当该视图的 layout_width 或者 layout_height 指定为具体数值或者 match_parent 时生效，表示父视图已经决定了子视图的精确大小，这种模式下 View 的测量值就是 SpecSize 的值。</li>
+<li>AT_MOST<br>最大值模式，当前视图的 layout_width 或者 layout_height 指定为 wrap_content 时生效，父容器指定了一个可用大小specSize，此时子视图的尺寸可以是不超过父容器指定最大尺寸的任何尺寸。</li>
+</ul>
+<p>有什么作用？    </p>
+<p>系统是通过View的MeasureSpec来确定View的测量宽高。</p>
+<p>MeasureSpec怎么来的？   </p>
+<p>对于普通的View来说，其MeasureSpec由父容器的MeasureSpec和自身的LayoutParams共同确定。对于顶级View（DecorView），其MeasureSpec由窗口的尺寸和其自身的LayoutParams共同确定。</p>
+<h3 id="Layout"><a href="#Layout" class="headerlink" title="Layout"></a>Layout</h3><h3 id="Draw"><a href="#Draw" class="headerlink" title="Draw"></a>Draw</h3><h2 id="Android进程间通信"><a href="#Android进程间通信" class="headerlink" title="Android进程间通信"></a>Android进程间通信</h2><h3 id="定义多进程"><a href="#定义多进程" class="headerlink" title="定义多进程"></a>定义多进程</h3><p>Android中使用多进程的方法只有一个（用NDK的fork来做除外），就是在AndroidManifest.xml中声明组件时，用android:process属性来指定。  </p>
+<p>不知定process属性，则默认运行在主进程中，主进程名字为包名。</p>
+<p>android:process &#x3D; package:remote，将运行在package:remote进程中，属于全局进程，其他具有相同shareUID与签名的APP可以跑在这个进程中。</p>
+<p>android:process &#x3D; :remote ，将运行在默认包名:remote进程中，而且是APP的私有进程，不允许其他APP的组件来访问。</p>
+<h3 id="多进程引发的问题"><a href="#多进程引发的问题" class="headerlink" title="多进程引发的问题"></a>多进程引发的问题</h3><p>静态成员和单例失效：每个进程保持各自的静态成员和单例，相互独立。</p>
+<p>线程同步机制失效：每个进程有自己的线程锁。</p>
+<p>SharedPreferences可靠性下降：不支持并发写，会出现脏数据。</p>
+<p>Application多次创建：不同进程跑在不同虚拟机，每个虚拟机启动会创建自己的Application，自定义Application时生命周期会混乱。</p>
+<p>综上，不同进程拥有各自独立的虚拟机，Application，内存空间，由此引发一系列问题。</p>
+<h3 id="进程间通信"><a href="#进程间通信" class="headerlink" title="进程间通信"></a>进程间通信</h3><ul>
+<li><p>Bundle&#x2F;Intent传递数据：<br>  可传递基本类型，String，实现了Serializable或Parcellable接口的数据结构。Serializable是Java的序列化方法，Parcellable是Android的序列化方法，前者代码量少（仅一句），但I&#x2F;O开销较大，一般用于输出到磁盘或网卡；后者实现代码多，效率高，一般用户内存间序列化和反序列化传输。</p>
+</li>
+<li><p>文件共享：<br>  对同一个文件先后写读，从而实现传输，Linux机制下，可以对文件并发写，所以要注意同步。顺便一提，Windows下不支持并发读或写。</p>
+</li>
+<li><p>Messenger：<br>  Messenger是基于AIDL实现的，服务端（被动方）提供一个Service来处理客户端（主动方）连接，维护一个Handler来创建Messenger，在onBind时返回Messenger的binder。<br>  双方用Messenger来发送数据，用Handler来处理数据。Messenger处理数据依靠Handler，所以是串行的，也就是说，Handler接到多个message时，就要排队依次处理。</p>
+</li>
+<li><p>AIDL：<br>  AIDL通过定义服务端暴露的接口，以提供给客户端来调用，AIDL使服务器可以并行处理，而Messenger封装了AIDL之后只能串行运行，所以Messenger一般用作消息传递。<br>  通过编写aidl文件来设计想要暴露的接口，编译后会自动生成响应的java文件，服务器将接口的具体实现写在Stub中，用iBinder对象传递给客户端，客户端bindService的时候，用asInterface的形式将iBinder还原成接口，再调用其中的方法。</p>
+</li>
+<li><p>ContentProvider：<br>  系统四大组件之一，底层也是Binder实现，主要用来为其他APP提供数据，可以说天生就是为进程通信而生的。自己实现一个ContentProvider需要实现6个方法，其中onCreate是主线程中回调的，其他方法是运行在Binder之中的。自定义的ContentProvider注册时要提供authorities属性，应用需要访问的时候将属性包装成Uri.parse(“content:&#x2F;&#x2F;authorities”)。还可以设置permission，readPermission，writePermission来设置权限。 ContentProvider有query，delete，insert等方法，看起来貌似是一个数据库管理类，但其实可以用文件，内存数据等等一切来充当数据源，query返回的是一个Cursor，可以自定义继承AbstractCursor的类来实现。</p>
+</li>
+<li><p>Socket：<br>  学过计算机网络的对Socket不陌生，所以不需要详细讲述。只需要注意，Android不允许在主线程中请求网络，而且请求网络必须要注意声明相应的permission。然后，在服务器中定义ServerSocket来监听端口，客户端使用Socket来请求端口，连通后就可以进行通信。</p>
+</li>
+</ul>
+<h2 id="js和Android交互"><a href="#js和Android交互" class="headerlink" title="js和Android交互"></a>js和Android交互</h2><blockquote>
+<p><a href="https://blog.csdn.net/carson_ho/article/details/64904691">https://blog.csdn.net/carson_ho/article/details/64904691</a></p>
+</blockquote>
+<ul>
+<li>js2android<ol>
+<li>addJavascriptInterface() 有漏洞</li>
+<li>webviewClient的shouldOverrideUrlLoading()拦截url</li>
+<li>WebChromeClient的onAlert()、onJsconfirm（）、onJsPrompt（）拦截对话框消息</li>
+</ol>
+</li>
+<li>android2Js<ol>
+<li>webview.loadurl()</li>
+<li>webview.evaluateJavascript()仅限于4.4以上</li>
+</ol>
+</li>
+</ul>
+<h2 id="android进程保活"><a href="#android进程保活" class="headerlink" title="android进程保活"></a>android进程保活</h2><p>黑白灰</p>
+<ul>
+<li>黑：不同app进程互相唤醒</li>
+<li>白：启动前台服务（状态栏会有一条信息提示app正在运行）</li>
+<li>灰：利用系统漏洞开启前台服务（状态栏无提示）（api&lt;18 启动前台service时直接传入new Notification(),25&gt;api&gt;18 同时启动两个id相同的前台service，再将后启动的关闭）</li>
+</ul>
+<h2 id="算法"><a href="#算法" class="headerlink" title="算法"></a>算法</h2><ul>
+<li>选择<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">sort</span><span class="params">(Comparable[] a)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">n</span> <span class="operator">=</span> a.length;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; n; i++) &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">min</span> <span class="operator">=</span> i;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> i+<span class="number">1</span>; j &lt; n; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (less(a[j], a[min])) min = j;</span><br><span class="line">        &#125;</span><br><span class="line">        exch(a, i, min);</span><br><span class="line">        <span class="keyword">assert</span> <span class="title function_">isSorted</span><span class="params">(a, <span class="number">0</span>, i)</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">assert</span> <span class="title function_">isSorted</span><span class="params">(a)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+]]></content>
+      <tags>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+</search>
